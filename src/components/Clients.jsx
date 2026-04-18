@@ -6,7 +6,8 @@ import ClientCard from "./ClientCard";
 import NewClientModal from "./NewClientModal";
 
 function isPhoneQuery(q) {
-  return /[\d\-\(\)\s]{4,}/.test(q);
+  // Matches digit-only strings (6138642922) or formatted numbers (613-864-2922)
+  return /^\+?[\d\s\-\(\)]{4,}$/.test(q.trim());
 }
 
 export default function Clients({ searchQuery, onSelectContact }) {

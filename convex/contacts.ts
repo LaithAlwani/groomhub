@@ -4,6 +4,26 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireSession, requireAdmin } from "./sessions";
 
+// Format a phone number to xxx-xxx-xxxx.
+// 7-digit numbers get 613 prepended (Ottawa local).
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 7)  return `613-${digits.slice(0, 3)}-${digits.slice(3)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits[0] === "1")
+    return `${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+  return raw.trim();
+}
+
+// Store phone_search as space-separated digits only (no dashes).
+// Full-text search then tokenises on spaces, so "6138642922" is one exact token.
+function buildPhoneSearch(phones: { number: string }[]): string {
+  return phones
+    .map((p) => p.number.replace(/\D/g, ""))
+    .filter(Boolean)
+    .join(" ");
+}
+
 // ─── Queries (read-only, public — data is not sensitive enough to lock down reads) ──
 
 export const searchByName = query({
@@ -26,10 +46,13 @@ export const searchByPhone = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
     if (!args.query.trim()) return [];
+    // Strip non-digits so "613-864-2922" and "6138642922" both search the same token
+    const digitsOnly = args.query.replace(/\D/g, "");
+    if (!digitsOnly) return [];
     const results = await ctx.db
       .query("contacts")
       .withSearchIndex("search_by_phone", (q) =>
-        q.search("phone_search", args.query),
+        q.search("phone_search", digitsOnly),
       )
       .take(25);
     return results.sort((a, b) =>
@@ -73,14 +96,17 @@ export const createContact = mutation({
     const name = args.client_name.trim();
     if (!name) throw new Error("Client name is required");
 
-    const phoneSearch = args.phones.map((p) => p.number).join(" ");
+    const normalizedPhones = args.phones.map((p) => ({
+      ...p,
+      number: formatPhone(p.number),
+    }));
     const now = Date.now();
 
     return await ctx.db.insert("contacts", {
       client_name: name,
-      phones: args.phones,
+      phones: normalizedPhones,
       email: args.email,
-      phone_search: phoneSearch,
+      phone_search: buildPhoneSearch(normalizedPhones),
       pet_count: 0,
       createdBy: user.displayName,
       created_at: now,
@@ -126,7 +152,7 @@ export const importBatch = mutation({
       const name = c.client_name.trim();
       if (!name) continue;
 
-      const phoneSearch = c.phones.map((p) => p.number).join(" ");
+      const phoneSearch = buildPhoneSearch(c.phones);
 
       // Insert pets first so we can count what actually gets saved
       // A pet is valid if it has a name OR a breed (not both empty)
