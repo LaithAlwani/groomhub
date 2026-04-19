@@ -37,13 +37,13 @@ export const getStats = query({
       .withIndex("by_date", (q) => q.gte("date", week.start).lte("date", week.end))
       .collect();
 
-    const todayRevenue    = todayAppts.reduce((sum, a) => sum + (a.price ?? 0), 0);
+    const weekRevenue      = weekAppts.reduce((sum, a) => sum + (a.price ?? 0), 0);
     const todayClientCount = new Set(todayAppts.map((a) => a.contact_id.toString())).size;
 
     return {
       todayAppointments: todayAppts.length,
       weekAppointments:  weekAppts.length,
-      todayRevenue,
+      weekRevenue,
       todayClients: todayClientCount,
     };
   },
@@ -56,6 +56,7 @@ export const getRecentActivity = query({
 
     const appointments = await ctx.db
       .query("appointments")
+      .withIndex("by_date")
       .order("desc")
       .take(10);
 

@@ -3,18 +3,20 @@ import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 
-function StatCard({ icon, label, value, adminOnly, isAdmin }) {
+function StatCard({ icon, label, value, adminOnly, isAdmin, comingSoon }) {
   return (
     <div className="bg-background-card border border-border rounded-2xl p-5 shadow-card">
       <div className="flex items-center gap-2 text-text-muted mb-3">
         <Icon name={icon} className="w-4 h-4" />
         <span className="text-xs font-medium uppercase tracking-widest">{label}</span>
       </div>
-      {adminOnly && !isAdmin ? (
-        <div>
-          <p className="text-xl font-bold text-text-primary blur-sm select-none">$000.00</p>
-          <p className="text-xs text-text-muted mt-1 italic">Visible to admins only</p>
-        </div>
+      {comingSoon ? (
+        <>
+          <p className="text-2xl font-bold text-text-muted">—</p>
+          <p className="text-xs text-text-muted mt-1 italic">Coming soon</p>
+        </>
+      ) : adminOnly && !isAdmin ? (
+        <p className="text-2xl font-bold text-text-muted">—</p>
       ) : (
         <p className="text-2xl font-bold text-text-primary">
           {value ?? <span className="text-text-muted">—</span>}
@@ -50,12 +52,12 @@ export default function DashboardView() {
         <StatCard
           icon="calendar"
           label="Today's Appointments"
-          value={stats?.todayAppointments}
+          comingSoon
         />
         <StatCard
           icon="schedule"
-          label="This Week"
-          value={stats?.weekAppointments != null ? `${stats.weekAppointments} appts` : undefined}
+          label="Pending Approvals"
+          comingSoon
         />
         <StatCard
           icon="clients"
@@ -64,8 +66,8 @@ export default function DashboardView() {
         />
         <StatCard
           icon="dollar"
-          label="Today's Revenue"
-          value={stats?.todayRevenue != null ? `$${stats.todayRevenue.toFixed(2)}` : undefined}
+          label="Weekly Revenue"
+          value={stats?.weekRevenue != null ? `$${stats.weekRevenue.toFixed(2)}` : undefined}
           adminOnly
           isAdmin={user?.isAdmin}
         />
