@@ -1,0 +1,69 @@
+import { useState } from "react";
+import { useQuery, usePaginatedQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useAuth } from "../context/AuthContext";
+
+export function useClientDetail(contactId) {
+  const { user } = useAuth();
+
+  const contact = useQuery(api.clients.getClient, { id: contactId });
+  const pets = useQuery(api.pets.getPetsByContact, { contactId });
+  const { results: appointments, status, loadMore } = usePaginatedQuery(
+    api.appointments.getAppointmentsByContact,
+    { contactId },
+    { initialNumItems: 20 },
+  );
+
+  const deletePet = useMutation(api.pets.deletePet);
+  const deleteAppointment = useMutation(api.appointments.deleteAppointment);
+
+  const [confirmDeletePet, setConfirmDeletePet] = useState(null);
+  const [confirmDeleteAppt, setConfirmDeleteAppt] = useState(null);
+  const [apptTab, setApptTab] = useState("all");
+
+  async function handleDeletePet(petId) {
+    await deletePet({ sessionToken: user.sessionToken, petId });
+    setConfirmDeletePet(null);
+  }
+
+  async function handleDeleteAppt(appointmentId) {
+    await deleteAppointment({ sessionToken: user.sessionToken, appointmentId });
+    setConfirmDeleteAppt(null);
+  }
+
+  const hasLegacy = appointments?.some((a) => a.is_legacy) ?? false;
+  const tabs = appointments ? [
+    { id: "all", label: "All", count: appointments.length },
+    ...(pets ?? [])
+      .filter((p) => appointments.some((a) => a.pet_id === p._id))
+      .map((p) => ({
+        id: p._id,
+        label: p.name || "Unnamed",
+        count: appointments.filter((a) => a.pet_id === p._id).length,
+      })),
+    ...(hasLegacy ? [{ id: "legacy", label: "Legacy", count: appointments.filter((a) => a.is_legacy).length }] : []),
+  ] : [];
+
+  const visible = !appointments ? [] :
+    apptTab === "all"    ? appointments :
+    apptTab === "legacy" ? appointments.filter((a) => a.is_legacy) :
+                           appointments.filter((a) => a.pet_id === apptTab);
+
+  return {
+    contact,
+    pets,
+    appointments,
+    status,
+    loadMore,
+    tabs,
+    visible,
+    apptTab,
+    setApptTab,
+    confirmDeletePet,
+    setConfirmDeletePet,
+    confirmDeleteAppt,
+    setConfirmDeleteAppt,
+    handleDeletePet,
+    handleDeleteAppt,
+  };
+}

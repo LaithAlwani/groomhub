@@ -3,8 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
-
-const TEMPERAMENTS = ["friendly", "calm", "energetic", "nervous", "aggressive", "independent"];
+import { TEMPERAMENTS } from "../constants/pets";
 
 export default function PetFormModal({ clientId, pet, onClose }) {
   const { user } = useAuth();

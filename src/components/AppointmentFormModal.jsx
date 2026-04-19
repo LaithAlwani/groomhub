@@ -4,6 +4,11 @@ import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 
+function localDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const FIELD_CLASSES = {
   base:  "w-full border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 bg-background-card",
   ok:    "border-border focus:ring-primary",
@@ -23,7 +28,7 @@ export default function AppointmentFormModal({ contactId, appointment, pets = []
   const users  = useQuery(api.users.listGroomers, { sessionToken: user.sessionToken });
 
   const [petId,    setPetId]    = useState(appointment?.pet_id    ?? "");
-  const [date,     setDate]     = useState(appointment?.date      ?? new Date().toISOString().slice(0, 10));
+  const [date,     setDate]     = useState(appointment?.date      ?? localDateString());
   const [noteText, setNoteText] = useState(appointment?.note_text ?? "");
   const [groomer,  setGroomer]  = useState(appointment?.groomer   ?? "");
   const [price,    setPrice]    = useState(appointment?.price != null ? String(appointment.price) : "");

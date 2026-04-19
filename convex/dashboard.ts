@@ -2,30 +2,24 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireSession } from "./sessions";
 
-function todayString() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-}
-
-function weekRange() {
-  const now = new Date();
+function weekRange(today: string) {
+  const now = new Date(today);
   const day = now.getDay(); // 0 = Sunday
   const start = new Date(now);
   start.setDate(now.getDate() - day);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  return {
-    start: start.toISOString().slice(0, 10),
-    end:   end.toISOString().slice(0, 10),
-  };
+  const pad = (d: Date) => d.toISOString().slice(0, 10);
+  return { start: pad(start), end: pad(end) };
 }
 
 export const getStats = query({
-  args: { sessionToken: v.string() },
+  args: { sessionToken: v.string(), today: v.string() },
   handler: async (ctx, args) => {
     await requireSession(ctx, args.sessionToken);
 
-    const today = todayString();
-    const week  = weekRange();
+    const today = args.today;
+    const week  = weekRange(today);
 
     const todayAppts = await ctx.db
       .query("appointments")
@@ -37,14 +31,13 @@ export const getStats = query({
       .withIndex("by_date", (q) => q.gte("date", week.start).lte("date", week.end))
       .collect();
 
-    const weekRevenue      = weekAppts.reduce((sum, a) => sum + (a.price ?? 0), 0);
-    const todayClientCount = new Set(todayAppts.map((a) => a.contact_id.toString())).size;
+    const weekRevenue = weekAppts.reduce((sum, a) => sum + (a.price ?? 0), 0);
 
     return {
       todayAppointments: todayAppts.length,
       weekAppointments:  weekAppts.length,
       weekRevenue,
-      todayClients: todayClientCount,
+      todayClients: todayAppts.length,
     };
   },
 });
