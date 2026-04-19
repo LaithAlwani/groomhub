@@ -1,6 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
-import { v } from "convex/values";
-import { createSession, requireAdmin } from "./sessions";
+import { ConvexError, v } from "convex/values";
+import { createSession, requireSession, requireAdmin } from "./sessions";
 
 async function hashPin(pin: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -11,7 +11,7 @@ async function hashPin(pin: string): Promise<string> {
     .join("");
 }
 
-const MAX_FAILED_ATTEMPTS = 10;
+const MAX_FAILED_ATTEMPTS = 3;
 
 export const login = mutation({
   args: {
@@ -25,28 +25,31 @@ export const login = mutation({
       .withIndex("by_username", (q) => q.eq("username", username))
       .unique();
 
-    // Use the same error message whether username or PIN is wrong
-    // to prevent username enumeration
-    if (!user) throw new Error("Invalid credentials");
+    if (!user) return { ok: false as const, error: "Wrong username or PIN." };
 
     const attempts = user.failed_attempts ?? 0;
     if (attempts >= MAX_FAILED_ATTEMPTS) {
-      throw new Error("Account locked. Contact an administrator.");
+      return { ok: false as const, error: "Account locked. Contact an administrator." };
     }
 
     const pinHash = await hashPin(args.pin);
 
     if (user.passcode !== pinHash) {
-      await ctx.db.patch(user._id, { failed_attempts: attempts + 1 });
-      throw new Error("Invalid credentials");
+      const newAttempts = attempts + 1;
+      // Patch BEFORE returning so the write commits (throwing would roll it back)
+      await ctx.db.patch(user._id, { failed_attempts: newAttempts });
+      if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+        return { ok: false as const, error: "Account locked. Contact an administrator." };
+      }
+      return { ok: false as const, error: "Wrong username or PIN." };
     }
 
     await ctx.db.patch(user._id, { failed_attempts: 0 });
 
-    // Issue a session token — client stores this and passes it with mutations
     const sessionToken = await createSession(ctx, user._id);
 
     return {
+      ok:          true as const,
       sessionToken,
       userId:      user._id,
       displayName: user.displayName,
@@ -67,6 +70,17 @@ export const logout = mutation({
 });
 
 // ─── User Management (admin-only) ────────────────────────────────────────────
+
+export const listGroomers = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireSession(ctx, args.sessionToken);
+    const users = await ctx.db.query("users").collect();
+    return users
+      .map((u) => ({ _id: u._id, displayName: u.displayName }))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  },
+});
 
 export const listUsers = query({
   args: { sessionToken: v.string() },

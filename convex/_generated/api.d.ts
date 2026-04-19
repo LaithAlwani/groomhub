@@ -10,6 +10,7 @@
 
 import type * as appointments from "../appointments.js";
 import type * as clients from "../clients.js";
+import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
 import type * as importAction from "../importAction.js";
 import type * as pets from "../pets.js";
@@ -25,6 +26,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   appointments: typeof appointments;
   clients: typeof clients;
+  dashboard: typeof dashboard;
   http: typeof http;
   importAction: typeof importAction;
   pets: typeof pets;

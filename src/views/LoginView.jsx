@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 
-export default function Login() {
+export default function LoginView() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [pin,      setPin]      = useState("");
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
+
+  const isLocked = error.toLowerCase().includes("locked");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -17,6 +19,7 @@ export default function Login() {
       await login(username.trim(), pin);
     } catch (err) {
       setError(err.message ?? "Login failed");
+      setPin("");
     } finally {
       setLoading(false);
     }
@@ -25,7 +28,6 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="bg-background-card rounded-2xl shadow-soft p-10 w-full max-w-sm">
-        {/* Logo */}
         <div className="mb-8 text-center">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mx-auto mb-3">
             <Icon name="scissors" className="w-5 h-5 text-white" />
@@ -36,9 +38,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Username
-            </label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Username</label>
             <div className="relative">
               <Icon name="user" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               <input
@@ -54,9 +54,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              PIN
-            </label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">PIN</label>
             <div className="relative">
               <Icon name="shield" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               <input
@@ -74,9 +72,10 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="text-sm text-danger bg-tag-red rounded-xl px-3 py-2">
-              {error}
-            </p>
+            <div className="flex items-start gap-2 bg-tag-red rounded-xl px-3 py-2.5 text-sm">
+              <Icon name={isLocked ? "shield" : "alert"} className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+              <p className="text-danger">{error}</p>
+            </div>
           )}
 
           <button

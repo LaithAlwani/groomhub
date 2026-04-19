@@ -1,22 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, usePaginatedQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { isPhoneQuery } from "../utils/phone";
 import Icon from "../assets/Icon";
-import ClientCard from "./ClientCard";
-import NewClientModal from "./NewClientModal";
+import ClientCard from "../components/ClientCard";
+import NewClientModal from "../components/NewClientModal";
 
-function isPhoneQuery(q) {
-  // Matches digit-only strings (6138642922) or formatted numbers (613-864-2922)
-  return /^\+?[\d\s\-\(\)]{4,}$/.test(q.trim());
-}
-
-export default function Clients({ searchQuery, onSelectContact }) {
+export default function ClientsView({ searchQuery, onSelectContact }) {
   const [showModal,      setShowModal]      = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const debounceRef  = useRef(null);
-  const sentinelRef  = useRef(null);
+  const debounceRef = useRef(null);
+  const sentinelRef = useRef(null);
 
-  // Debounce search input
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery ?? ""), 300);
@@ -52,12 +47,9 @@ export default function Clients({ searchQuery, onSelectContact }) {
 
   const canLoadMore = !isSearching && status === "CanLoadMore";
 
-  // IntersectionObserver — fires loadMore when the sentinel div enters the viewport
   const handleIntersect = useCallback(
     (entries) => {
-      if (entries[0].isIntersecting && canLoadMore) {
-        loadMore(50);
-      }
+      if (entries[0].isIntersecting && canLoadMore) loadMore(50);
     },
     [canLoadMore, loadMore],
   );
@@ -72,13 +64,10 @@ export default function Clients({ searchQuery, onSelectContact }) {
 
   return (
     <div>
-      {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-title text-text-primary">Clients</h1>
-          <p className="text-sm text-text-secondary mt-0.5">
-            Manage your client list and their pets
-          </p>
+          <p className="text-sm text-text-secondary mt-0.5">Manage your client list and their pets</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -89,7 +78,6 @@ export default function Clients({ searchQuery, onSelectContact }) {
         </button>
       </div>
 
-      {/* Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 9 }).map((_, i) => (
@@ -104,9 +92,7 @@ export default function Clients({ searchQuery, onSelectContact }) {
         <div className="text-center py-16 text-text-muted">
           <Icon name="clients" className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">No clients found</p>
-          {isSearching && (
-            <p className="text-xs mt-1">Try a different name or phone number</p>
-          )}
+          {isSearching && <p className="text-xs mt-1">Try a different name or phone number</p>}
         </div>
       ) : (
         <>
@@ -116,7 +102,6 @@ export default function Clients({ searchQuery, onSelectContact }) {
             ))}
           </div>
 
-          {/* Sentinel — observed to trigger next page load */}
           <div ref={sentinelRef} className="h-8 mt-4" />
 
           {status === "LoadingMore" && (

@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
 
   async function login(username, pin) {
     const result = await loginMutation({ username, pin });
+    if (!result.ok) throw new Error(result.error);
     setUser(result);
     return result;
   }

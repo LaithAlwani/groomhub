@@ -46,7 +46,7 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="bg-background-card border border-border rounded-2xl p-6 shadow-card">
+    <div className="bg-background-card border border-border rounded-2xl p-6 shadow-card max-w-md">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ export default function UserManagement() {
       ) : (
         <div className="space-y-2">
           {users.map((u) => {
-            const isLocked = (u.failed_attempts ?? 0) >= 10;
+            const isLocked = (u.failed_attempts ?? 0) >= 3;
             const isSelf   = u._id === user.userId;
 
             return (

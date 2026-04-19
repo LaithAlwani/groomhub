@@ -56,8 +56,9 @@ export default defineSchema({
     groomer: v.optional(v.string()),
     note_text: v.string(),
     is_legacy: v.optional(v.boolean()),
-    createdBy: v.optional(v.string()),
-    created_at: v.optional(v.number()),
+    createdBy:   v.optional(v.string()),
+    createdById: v.optional(v.id("users")),
+    created_at:  v.optional(v.number()),
   })
     .index("by_contact_and_date", ["contact_id", "date"])
     .index("by_pet", ["pet_id"])

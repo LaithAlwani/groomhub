@@ -142,6 +142,42 @@ export const createClient = mutation({
   },
 });
 
+export const updateClient = mutation({
+  args: {
+    sessionToken: v.string(),
+    clientId:     v.id("clients"),
+    first_name:   v.string(),
+    last_name:    v.optional(v.string()),
+    phones: v.array(
+      v.object({ number: v.string(), type: v.optional(v.string()) }),
+    ),
+    email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireSession(ctx, args.sessionToken);
+
+    const firstName = args.first_name.trim();
+    if (!firstName) throw new Error("First name is required");
+    const lastName   = args.last_name?.trim() ?? "";
+    const clientName = [firstName, lastName].filter(Boolean).join(" ");
+
+    const normalizedPhones = args.phones.map((p) => ({
+      ...p,
+      number: formatPhone(p.number),
+    }));
+
+    await ctx.db.patch(args.clientId, {
+      first_name:   firstName,
+      last_name:    lastName || undefined,
+      client_name:  clientName,
+      phones:       normalizedPhones,
+      email:        args.email?.trim() || undefined,
+      phone_search: buildPhoneSearch(normalizedPhones),
+      updated_at:   Date.now(),
+    });
+  },
+});
+
 // Admin-only: import a batch of clients parsed from contacts.xml
 export const importBatch = mutation({
   args: {

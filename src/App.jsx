@@ -1,18 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import Login from "./components/Login";
 import Layout from "./components/Layout";
-import Clients from "./components/Clients";
-import ClientDetail from "./components/ClientDetail";
-import Admin from "./components/Admin";
+import LoginView from "./views/LoginView";
+import DashboardView from "./views/DashboardView";
+import ClientsView from "./views/ClientsView";
+import ClientDetailView from "./views/ClientDetailView";
+import AdminView from "./views/AdminView";
 
 function AppShell() {
   const { user } = useAuth();
-  const [page,              setPage]              = useState("clients");
+  const [page,              setPage]              = useState("dashboard");
   const [searchQuery,       setSearchQuery]       = useState("");
   const [selectedContactId, setSelectedContactId] = useState(null);
 
-  if (!user) return <Login />;
+  useEffect(() => {
+    setPage("dashboard");
+    setSearchQuery("");
+    setSelectedContactId(null);
+  }, [user?.userId]);
+
+  if (!user) return <LoginView />;
 
   function handleNavigate(id) {
     setPage(id);
@@ -22,7 +29,7 @@ function AppShell() {
 
   function handleSelectContact(contact) {
     setSelectedContactId(contact._id);
-    setPage("clients"); // keep clients tab active
+    setPage("clients");
   }
 
   function handleBack() {
@@ -30,25 +37,19 @@ function AppShell() {
   }
 
   function renderPage() {
+    if (page === "dashboard") {
+      return <DashboardView />;
+    }
+
     if (page === "clients") {
       if (selectedContactId) {
-        return (
-          <ClientDetail
-            contactId={selectedContactId}
-            onBack={handleBack}
-          />
-        );
+        return <ClientDetailView contactId={selectedContactId} onBack={handleBack} />;
       }
-      return (
-        <Clients
-          searchQuery={searchQuery}
-          onSelectContact={handleSelectContact}
-        />
-      );
+      return <ClientsView searchQuery={searchQuery} onSelectContact={handleSelectContact} />;
     }
 
     if (page === "admin") {
-      return user.isAdmin ? <Admin /> : null;
+      return user.isAdmin ? <AdminView /> : null;
     }
 
     return (
@@ -64,6 +65,7 @@ function AppShell() {
       onNavigate={handleNavigate}
       searchQuery={searchQuery}
       onSearch={setSearchQuery}
+      showSearch={page === "clients" && !selectedContactId}
     >
       {renderPage()}
     </Layout>

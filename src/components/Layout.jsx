@@ -8,16 +8,16 @@ const NAV_ITEMS = [
   { id: "settings",  label: "Settings",   icon: "settings"  },
 ];
 
-export default function Layout({ page, onNavigate, searchQuery, onSearch, children }) {
+export default function Layout({ page, onNavigate, searchQuery, onSearch, showSearch, children }) {
   const { user, logout } = useAuth();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <aside className="w-44 shrink-0 flex flex-col bg-sidebar-bg">
+      <aside className="w-44 shrink-0 flex flex-col text-neutral-400">
         {/* Logo */}
         <div className="px-5 pt-6 pb-5 border-b border-white/10">
-          <span className="text-white font-bold text-base tracking-tight">GroomHub</span>
+          <span className="text-xl text-neutral-700 font-bold  tracking-tight">GroomHub</span>
           <p className="text-sidebar-item text-xs mt-0.5 font-medium tracking-widest uppercase">
             Internal Portal
           </p>
@@ -33,8 +33,8 @@ export default function Layout({ page, onNavigate, searchQuery, onSearch, childr
                 onClick={() => onNavigate(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left ${
                   active
-                    ? "bg-sidebar-active text-white"
-                    : "text-sidebar-item hover:bg-sidebar-hover hover:text-white"
+                    ? "bg-primary-light text-primary"
+                    : "hover:bg-neutral-100 hover:text-neutral-700"
                 }`}
               >
                 <Icon name={item.icon} className="w-4 h-4 shrink-0" />
@@ -48,8 +48,8 @@ export default function Layout({ page, onNavigate, searchQuery, onSearch, childr
               onClick={() => onNavigate("admin")}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left ${
                 page === "admin"
-                  ? "bg-sidebar-active text-white"
-                  : "text-sidebar-item hover:bg-sidebar-hover hover:text-white"
+                  ? "bg-primary-light text-primary"
+                  : "hover:bg-neutral-100 hover:text-neutral-700"
               }`}
             >
               <Icon name="shield" className="w-4 h-4 shrink-0" />
@@ -69,7 +69,7 @@ export default function Layout({ page, onNavigate, searchQuery, onSearch, childr
           <button
             onClick={logout}
             title="Log out"
-            className="text-sidebar-item hover:text-white transition-colors"
+            className="text-sidebar-item hover:text-neutral-700 transition-colors"
           >
             <Icon name="logout" className="w-4 h-4" />
           </button>
@@ -79,19 +79,23 @@ export default function Layout({ page, onNavigate, searchQuery, onSearch, childr
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-background-card border-b border-border px-6 py-3 flex items-center gap-4 shrink-0">
-          <div className="flex-1 relative">
-            <Icon
-              name="search"
-              className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-            />
-            <input
-              type="text"
-              placeholder="Search clients or pets…"
-              value={searchQuery}
-              onChange={(e) => onSearch(e.target.value)}
-              className="w-64 border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
-            />
+        <header className="bg-background-card border-b border-border px-6 h-14 flex items-center gap-4 shrink-0">
+          <div className="flex-1">
+            {showSearch && (
+              <div className="relative">
+                <Icon
+                  name="search"
+                  className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Search clients or pets…"
+                  value={searchQuery}
+                  onChange={(e) => onSearch(e.target.value)}
+                  className="w-64 border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                />
+              </div>
+            )}
           </div>
 
           <button className="text-sm text-text-secondary hover:text-text-primary font-medium transition-colors">
