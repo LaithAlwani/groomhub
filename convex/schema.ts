@@ -2,8 +2,10 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  contacts: defineTable({
-    client_name: v.string(),
+  clients: defineTable({
+    first_name: v.string(),
+    last_name: v.optional(v.string()),
+    client_name: v.string(), // combined "first_name last_name" — used for search index + sorting
     phones: v.array(
       v.object({
         number: v.string(),
@@ -24,11 +26,12 @@ export default defineSchema({
   })
     .index("by_phone",       ["phones"])
     .index("by_client_name", ["client_name"])
-    .searchIndex("search_by_name",  { searchField: "client_name" })
-    .searchIndex("search_by_phone", { searchField: "phone_search" }),
+    .searchIndex("search_by_name",      { searchField: "client_name" })
+    .searchIndex("search_by_last_name", { searchField: "last_name" })
+    .searchIndex("search_by_phone",     { searchField: "phone_search" }),
 
   pets: defineTable({
-    contact_id: v.id("contacts"),
+    contact_id: v.id("clients"),
     name: v.string(),
     species: v.optional(v.string()),
     breed: v.string(),
@@ -46,7 +49,7 @@ export default defineSchema({
     .index("by_contact", ["contact_id"]),
 
   appointments: defineTable({
-    contact_id: v.id("contacts"),
+    contact_id: v.id("clients"),
     pet_id: v.optional(v.id("pets")),
     date: v.optional(v.string()),
     price: v.optional(v.number()),

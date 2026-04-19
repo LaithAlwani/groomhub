@@ -2,7 +2,7 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getPetsByContact = query({
-  args: { contactId: v.id("contacts") },
+  args: { contactId: v.id("clients") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("pets")

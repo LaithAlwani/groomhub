@@ -24,6 +24,12 @@ function detectSpecies(breed) {
   return /cat/i.test(breed ?? "") ? "cat" : "dog";
 }
 
+// Strip surrounding quote characters that the source app stores in name fields.
+// e.g. `"Addie"` → `Addie`, `'Max'` → `Max`
+function stripQuotes(s) {
+  return s.replace(/^[\s"']+|[\s"']+$/g, "");
+}
+
 function parseContactsXml(xmlText) {
   const doc = new DOMParser().parseFromString(xmlText, "text/xml");
   const contacts = [];
@@ -32,23 +38,28 @@ function parseContactsXml(xmlText) {
     const getField = (name) =>
       c.querySelector(`Field[Name="${name}"]`)?.getAttribute("Value")?.trim() ?? "";
 
-    // Build full name from GivenName + Surname attributes (cleaner than Name attr)
-    const given   = c.getAttribute("GivenName")?.trim() ?? "";
-    const surname = c.getAttribute("Surname")?.trim()   ?? "";
-    // Avoid "John John" when both fields hold the same value
-    const client_name = given === surname
-      ? given
-      : [given, surname].filter(Boolean).join(" ");
-    if (!client_name) continue;
+    // Extract first name (GivenName) and last name (Surname).
+    // Strip surrounding quotes used for pet-name-style entries e.g. `"Addie"`.
+    const first_name = stripQuotes(c.getAttribute("GivenName") ?? "");
+    // Avoid "Smith Smith" when both attributes hold the same value
+    const rawSurname = stripQuotes(c.getAttribute("Surname") ?? "");
+    const last_name  = rawSurname === first_name ? "" : rawSurname;
+    if (!first_name) continue;
 
-    // Collect all Phone* fields, normalize numbers
+    // Collect all Phone* fields, normalize numbers, deduplicate by digits
+    const seenDigits = new Set();
     const phones = Array.from(c.querySelectorAll("Field"))
       .filter((f) => /^Phone/i.test(f.getAttribute("Name") ?? ""))
       .map((f) => {
-        const fieldName = f.getAttribute("Name") ?? "";
+        const fieldName  = f.getAttribute("Name") ?? "";
         const normalized = normalizePhone(f.getAttribute("Value"));
         if (!normalized) return null;
-        return { number: normalized, type: fieldName === "Phone" ? "main" : "cell" };
+        const digits = normalized.replace(/\D/g, "");
+        if (seenDigits.has(digits)) return null;
+        seenDigits.add(digits);
+        // "Phone" (exact) → main; anything else (Phone2, Phone2 cell, …) → cell
+        const type = fieldName.trim() === "Phone" ? "main" : "cell";
+        return { number: normalized, type };
       })
       .filter(Boolean);
 
@@ -68,7 +79,8 @@ function parseContactsXml(xmlText) {
     const notes = c.querySelector("Notes")?.textContent?.trim() ?? "";
 
     contacts.push({
-      client_name,
+      first_name,
+      last_name: last_name || undefined,
       phones,
       notes: notes || undefined,
       pets,
@@ -81,7 +93,7 @@ function parseContactsXml(xmlText) {
 export default function Admin() {
   const { user } = useAuth();
   const fileRef    = useRef(null);
-  const importBatch = useMutation(api.contacts.importBatch);
+  const importBatch = useMutation(api.clients.importBatch);
 
   const [status,   setStatus]   = useState("idle"); // idle | parsing | importing | done | error
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -112,7 +124,7 @@ export default function Admin() {
     try {
       for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
         const batch = contacts.slice(i, i + BATCH_SIZE);
-        await importBatch({ sessionToken: user.sessionToken, contacts: batch });
+        await importBatch({ sessionToken: user.sessionToken, clients: batch });
         done += batch.length;
         setProgress({ done, total: contacts.length });
       }

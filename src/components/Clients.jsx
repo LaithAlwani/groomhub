@@ -27,17 +27,17 @@ export default function Clients({ searchQuery, onSelectContact }) {
   const phoneMode   = isPhoneQuery(debouncedQuery);
 
   const nameResults = useQuery(
-    api.contacts.searchByName,
+    api.clients.searchByName,
     isSearching && !phoneMode ? { query: debouncedQuery } : "skip",
   );
 
   const phoneResults = useQuery(
-    api.contacts.searchByPhone,
+    api.clients.searchByPhone,
     isSearching && phoneMode ? { query: debouncedQuery } : "skip",
   );
 
   const { results: pagedContacts, status, loadMore } = usePaginatedQuery(
-    api.contacts.listContacts,
+    api.clients.listClients,
     !isSearching ? {} : "skip",
     { initialNumItems: 50 },
   );

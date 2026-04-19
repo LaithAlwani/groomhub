@@ -4,7 +4,7 @@ import { paginationOptsValidator } from "convex/server";
 
 export const getAppointmentsByContact = query({
   args: {
-    contactId: v.id("contacts"),
+    contactId: v.id("clients"),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {

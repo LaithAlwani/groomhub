@@ -6,23 +6,25 @@ import Icon from "../assets/Icon";
 
 export default function NewClientModal({ onClose }) {
   const { user } = useAuth();
-  const createContact = useMutation(api.contacts.createContact);
+  const createContact = useMutation(api.clients.createClient);
 
-  const [name,    setName]    = useState("");
-  const [phone,   setPhone]   = useState("");
-  const [email,   setEmail]   = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName,  setLastName]  = useState("");
+  const [phone,     setPhone]     = useState("");
+  const [email,     setEmail]     = useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!name.trim()) { setError("Client name is required"); return; }
+    if (!firstName.trim()) { setError("First name is required"); return; }
     setLoading(true);
     try {
       await createContact({
         sessionToken: user.sessionToken,
-        client_name: name.trim(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim() || undefined,
         phones: phone.trim() ? [{ number: phone.trim(), type: "main" }] : [],
         email: email.trim() || undefined,
       });
@@ -49,18 +51,32 @@ export default function NewClientModal({ onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Full Name <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
-              placeholder='e.g. Smith "Max"'
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                First Name <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                placeholder="Jane"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                placeholder="Smith"
+              />
+            </div>
           </div>
 
           <div>

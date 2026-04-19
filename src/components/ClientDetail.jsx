@@ -4,7 +4,7 @@ import { api } from "../../convex/_generated/api";
 import Icon from "../assets/Icon";
 
 export default function ClientDetail({ contactId, onBack }) {
-  const contact = useQuery(api.contacts.getContact, { id: contactId });
+  const contact = useQuery(api.clients.getClient, { id: contactId });
   const pets = useQuery(api.pets.getPetsByContact, { contactId });
   const { results: appointments, status, loadMore } = usePaginatedQuery(
     api.appointments.getAppointmentsByContact,

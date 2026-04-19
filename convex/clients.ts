@@ -15,30 +15,53 @@ function formatPhone(raw: string): string {
   return raw.trim();
 }
 
-// Store phone_search as space-separated digits only (no dashes).
-// Full-text search then tokenises on spaces, so "6138642922" is one exact token.
+// Store phone_search as space-separated tokens.
+// Each phone contributes two tokens: full digits + last-4-digits suffix.
+// e.g. "613-864-2922" → "6138642922 2922"
+// Full-text search tokenises on spaces, so both are independently searchable.
 function buildPhoneSearch(phones: { number: string }[]): string {
-  return phones
-    .map((p) => p.number.replace(/\D/g, ""))
-    .filter(Boolean)
-    .join(" ");
+  const tokens: string[] = [];
+  for (const p of phones) {
+    const digits = p.number.replace(/\D/g, "");
+    if (!digits) continue;
+    tokens.push(digits);
+    if (digits.length > 4) tokens.push(digits.slice(-4));
+  }
+  return tokens.join(" ");
 }
 
-// ─── Queries (read-only, public — data is not sensitive enough to lock down reads) ──
+// ─── Queries ──────────────────────────────────────────────────────────────────
 
 export const searchByName = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
     if (!args.query.trim()) return [];
-    const results = await ctx.db
-      .query("contacts")
-      .withSearchIndex("search_by_name", (q) =>
-        q.search("client_name", args.query),
-      )
-      .take(25);
-    return results.sort((a, b) =>
-      a.client_name.localeCompare(b.client_name),
-    );
+
+    // Search full name and last name separately, then deduplicate by _id
+    const [byFullName, byLastName] = await Promise.all([
+      ctx.db
+        .query("clients")
+        .withSearchIndex("search_by_name", (q) =>
+          q.search("client_name", args.query),
+        )
+        .take(25),
+      ctx.db
+        .query("clients")
+        .withSearchIndex("search_by_last_name", (q) =>
+          q.search("last_name", args.query),
+        )
+        .take(25),
+    ]);
+
+    const seen = new Set<string>();
+    const merged = [];
+    for (const c of [...byFullName, ...byLastName]) {
+      if (!seen.has(c._id)) {
+        seen.add(c._id);
+        merged.push(c);
+      }
+    }
+    return merged.sort((a, b) => a.client_name.localeCompare(b.client_name));
   },
 });
 
@@ -46,11 +69,10 @@ export const searchByPhone = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
     if (!args.query.trim()) return [];
-    // Strip non-digits so "613-864-2922" and "6138642922" both search the same token
     const digitsOnly = args.query.replace(/\D/g, "");
     if (!digitsOnly) return [];
     const results = await ctx.db
-      .query("contacts")
+      .query("clients")
       .withSearchIndex("search_by_phone", (q) =>
         q.search("phone_search", digitsOnly),
       )
@@ -61,30 +83,31 @@ export const searchByPhone = query({
   },
 });
 
-export const listContacts = query({
+export const listClients = query({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("contacts")
+      .query("clients")
       .withIndex("by_client_name")
       .order("asc")
       .paginate(args.paginationOpts);
   },
 });
 
-export const getContact = query({
-  args: { id: v.id("contacts") },
+export const getClient = query({
+  args: { id: v.id("clients") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
 });
 
-// ─── Mutations (all require a valid session token) ────────────────────────────
+// ─── Mutations ────────────────────────────────────────────────────────────────
 
-export const createContact = mutation({
+export const createClient = mutation({
   args: {
     sessionToken: v.string(),
-    client_name: v.string(),
+    first_name: v.string(),
+    last_name: v.optional(v.string()),
     phones: v.array(
       v.object({ number: v.string(), type: v.optional(v.string()) }),
     ),
@@ -93,8 +116,10 @@ export const createContact = mutation({
   handler: async (ctx, args) => {
     const user = await requireSession(ctx, args.sessionToken);
 
-    const name = args.client_name.trim();
-    if (!name) throw new Error("Client name is required");
+    const firstName = args.first_name.trim();
+    if (!firstName) throw new Error("First name is required");
+    const lastName = args.last_name?.trim() ?? "";
+    const clientName = [firstName, lastName].filter(Boolean).join(" ");
 
     const normalizedPhones = args.phones.map((p) => ({
       ...p,
@@ -102,8 +127,10 @@ export const createContact = mutation({
     }));
     const now = Date.now();
 
-    return await ctx.db.insert("contacts", {
-      client_name: name,
+    return await ctx.db.insert("clients", {
+      first_name: firstName,
+      last_name: lastName || undefined,
+      client_name: clientName,
       phones: normalizedPhones,
       email: args.email,
       phone_search: buildPhoneSearch(normalizedPhones),
@@ -115,13 +142,14 @@ export const createContact = mutation({
   },
 });
 
-// Admin-only: import a batch of contacts parsed from contacts.xml
+// Admin-only: import a batch of clients parsed from contacts.xml
 export const importBatch = mutation({
   args: {
     sessionToken: v.string(),
-    contacts: v.array(
+    clients: v.array(
       v.object({
-        client_name: v.string(),
+        first_name: v.string(),
+        last_name:  v.optional(v.string()),
         phones: v.array(
           v.object({ number: v.string(), type: v.optional(v.string()) }),
         ),
@@ -138,30 +166,31 @@ export const importBatch = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    // Only admins can bulk-import data
     await requireAdmin(ctx, args.sessionToken);
 
-    if (args.contacts.length > 20) {
-      throw new Error("Maximum 20 contacts per batch");
+    if (args.clients.length > 20) {
+      throw new Error("Maximum 20 clients per batch");
     }
 
     const now = Date.now();
-    const inserted: Id<"contacts">[] = [];
+    const inserted: Id<"clients">[] = [];
 
-    for (const c of args.contacts) {
-      const name = c.client_name.trim();
-      if (!name) continue;
+    for (const c of args.clients) {
+      const firstName = c.first_name.trim();
+      if (!firstName) continue;
+      const lastName   = c.last_name?.trim() ?? "";
+      const clientName = [firstName, lastName].filter(Boolean).join(" ");
 
       const phoneSearch = buildPhoneSearch(c.phones);
 
-      // Insert pets first so we can count what actually gets saved
-      // A pet is valid if it has a name OR a breed (not both empty)
       const validPets = c.pets.filter(
         (p) => p.name.trim() || (p.breed && p.breed !== "unknown"),
       );
 
-      const contactId = await ctx.db.insert("contacts", {
-        client_name: name,
+      const clientId = await ctx.db.insert("clients", {
+        first_name:  firstName,
+        last_name:   lastName || undefined,
+        client_name: clientName,
         phones: c.phones,
         email: c.email,
         phone_search: phoneSearch,
@@ -175,7 +204,7 @@ export const importBatch = mutation({
         const isActive = !pet.name.toLowerCase().includes("(dead)");
         const petName  = pet.name.replace(/\s*\(dead\)\s*/i, "").trim();
         await ctx.db.insert("pets", {
-          contact_id: contactId,
+          contact_id: clientId,
           name:       petName,
           breed:      pet.breed || "unknown",
           species:    pet.species,
@@ -187,7 +216,7 @@ export const importBatch = mutation({
 
       if (c.notes?.trim()) {
         await ctx.db.insert("appointments", {
-          contact_id: contactId,
+          contact_id: clientId,
           note_text: c.notes.trim(),
           is_legacy: true,
           createdBy: "import",
@@ -195,7 +224,7 @@ export const importBatch = mutation({
         });
       }
 
-      inserted.push(contactId);
+      inserted.push(clientId);
     }
 
     return { inserted: inserted.length };
