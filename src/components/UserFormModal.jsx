@@ -46,8 +46,8 @@ export default function UserFormModal({ mode, target, onClose }) {
 
     if (!isEdit && !pin)
       errors.pin = "Passcode is required.";
-    else if (pin && pin.length < 4)
-      errors.pin = "Passcode must be at least 4 characters.";
+    else if (pin && pin.length < 6)
+      errors.pin = "Passcode must be at least 6 characters.";
 
     return errors;
   }
@@ -144,7 +144,7 @@ export default function UserFormModal({ mode, target, onClose }) {
               type="password"
               value={pin}
               onChange={(e) => { setPin(e.target.value); clearErr("pin"); }}
-              placeholder={isEdit ? "Enter new passcode to change" : "Min. 4 characters"}
+              placeholder={isEdit ? "Enter new passcode to change" : "Min. 6 characters"}
               className={fieldCls(fieldErrors.pin)}
             />
             {fieldErrors.pin && <p className="text-xs text-danger mt-1">{fieldErrors.pin}</p>}

@@ -19,7 +19,7 @@ export const login = mutation({
     pin: v.string(),
   },
   handler: async (ctx, args) => {
-    const username = args.username.trim().toLowerCase();
+    const username = args.username.trim();
     const user = await ctx.db
       .query("users")
       .withIndex("by_username", (q) => q.eq("username", username))

@@ -54,19 +54,17 @@ export default function LoginView() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">PIN</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Passcode</label>
             <div className="relative">
               <Icon name="shield" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               <input
                 type="password"
-                inputMode="numeric"
                 autoComplete="current-password"
                 required
-                maxLength={8}
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => setPin(e.target.value)}
                 className="w-full border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
-                placeholder="Enter your PIN"
+                placeholder="Enter your passcode"
               />
             </div>
           </div>
