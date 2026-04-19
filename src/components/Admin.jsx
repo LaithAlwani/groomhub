@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
+import UserManagement from "./UserManagement";
 
 // Normalize a phone number to 613-XXX-XXXX format.
 // 7-digit numbers (local Ottawa) get the 613 area code prepended.
@@ -142,11 +143,13 @@ export default function Admin() {
     : 0;
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="space-y-6">
+      <div>
         <h1 className="text-title text-text-primary">Admin</h1>
         <p className="text-sm text-text-secondary mt-0.5">Management tools</p>
       </div>
+
+      <UserManagement />
 
       <div className="bg-background-card border border-border rounded-2xl p-6 max-w-lg shadow-card">
         <div className="flex items-center gap-2 mb-1">
@@ -211,3 +214,4 @@ export default function Admin() {
     </div>
   );
 }
+
