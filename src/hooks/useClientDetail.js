@@ -14,12 +14,14 @@ export function useClientDetail(contactId) {
     { initialNumItems: 20 },
   );
 
-  const deletePet = useMutation(api.pets.deletePet);
+  const deletePet         = useMutation(api.pets.deletePet);
   const deleteAppointment = useMutation(api.appointments.deleteAppointment);
+  const deleteClient      = useMutation(api.clients.deleteClient);
 
-  const [confirmDeletePet, setConfirmDeletePet] = useState(null);
-  const [confirmDeleteAppt, setConfirmDeleteAppt] = useState(null);
-  const [apptTab, setApptTab] = useState("all");
+  const [confirmDeletePet,    setConfirmDeletePet]    = useState(null);
+  const [confirmDeleteAppt,   setConfirmDeleteAppt]   = useState(null);
+  const [confirmDeleteClient, setConfirmDeleteClient] = useState(false);
+  const [apptTab,              setApptTab]             = useState("all");
 
   async function handleDeletePet(petId) {
     await deletePet({ sessionToken: user.sessionToken, petId });
@@ -29,6 +31,11 @@ export function useClientDetail(contactId) {
   async function handleDeleteAppt(appointmentId) {
     await deleteAppointment({ sessionToken: user.sessionToken, appointmentId });
     setConfirmDeleteAppt(null);
+  }
+
+  async function handleDeleteClient(onBack) {
+    await deleteClient({ sessionToken: user.sessionToken, clientId: contactId });
+    onBack();
   }
 
   const hasLegacy = appointments?.some((a) => a.is_legacy) ?? false;
@@ -65,5 +72,8 @@ export function useClientDetail(contactId) {
     setConfirmDeleteAppt,
     handleDeletePet,
     handleDeleteAppt,
+    confirmDeleteClient,
+    setConfirmDeleteClient,
+    handleDeleteClient,
   };
 }

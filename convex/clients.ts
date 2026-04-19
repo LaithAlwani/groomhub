@@ -186,6 +186,37 @@ export const updateClient = mutation({
   },
 });
 
+export const deleteClient = mutation({
+  args: {
+    sessionToken: v.string(),
+    clientId:     v.id("clients"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
+    // Delete all appointments for this client
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_contact_and_date", (q) => q.eq("contact_id", args.clientId))
+      .collect();
+    for (const appt of appointments) {
+      await ctx.db.delete(appt._id);
+    }
+
+    // Delete all pets for this client
+    const pets = await ctx.db
+      .query("pets")
+      .withIndex("by_contact", (q) => q.eq("contact_id", args.clientId))
+      .collect();
+    for (const pet of pets) {
+      await ctx.db.delete(pet._id);
+    }
+
+    // Delete the client
+    await ctx.db.delete(args.clientId);
+  },
+});
+
 // Admin-only: import a batch of clients parsed from contacts.xml
 export const importBatch = mutation({
   args: {

@@ -17,6 +17,7 @@ export default function ClientDetailView({ contactId, onBack }) {
     confirmDeletePet, setConfirmDeletePet,
     confirmDeleteAppt, setConfirmDeleteAppt,
     handleDeletePet, handleDeleteAppt,
+    confirmDeleteClient, setConfirmDeleteClient, handleDeleteClient,
   } = useClientDetail(contactId);
 
   const [showEditClient, setShowEditClient] = useState(false);
@@ -231,6 +232,39 @@ export default function ClientDetailView({ contactId, onBack }) {
           </div>
         )}
       </div>
+
+      {/* Delete client — admin only */}
+      {user?.isAdmin && (
+        <div className="flex justify-end pt-2">
+          {confirmDeleteClient ? (
+            <div className="flex items-center gap-3 bg-background-card border border-danger rounded-2xl px-4 py-3 shadow-card">
+              <p className="text-sm text-text-primary">
+                Permanently delete <span className="font-semibold">{contact.client_name}</span> and all their pets and appointments?
+              </p>
+              <button
+                onClick={() => handleDeleteClient(onBack)}
+                className="text-sm font-medium text-white bg-danger hover:bg-danger/90 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+              >
+                Yes, delete
+              </button>
+              <button
+                onClick={() => setConfirmDeleteClient(false)}
+                className="text-sm text-text-secondary hover:text-text-primary px-2 py-1.5 rounded-lg transition-colors shrink-0"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDeleteClient(true)}
+              className="flex items-center gap-2 text-sm text-danger hover:bg-tag-red px-3 py-2 rounded-xl transition-colors"
+            >
+              <Icon name="trash" className="w-4 h-4" />
+              Delete Client
+            </button>
+          )}
+        </div>
+      )}
 
       {showEditClient && <EditClientModal client={contact} onClose={() => setShowEditClient(false)} />}
       {petModal && <PetFormModal clientId={contactId} pet={petModal.pet ?? null} onClose={() => setPetModal(null)} />}
