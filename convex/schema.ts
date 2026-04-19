@@ -59,6 +59,9 @@ export default defineSchema({
     createdBy:   v.optional(v.string()),
     createdById: v.optional(v.id("users")),
     created_at:  v.optional(v.number()),
+    editedBy:    v.optional(v.string()),
+    editedById:  v.optional(v.id("users")),
+    edited_at:   v.optional(v.number()),
   })
     .index("by_contact_and_date", ["contact_id", "date"])
     .index("by_pet", ["pet_id"])

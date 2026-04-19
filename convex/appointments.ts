@@ -1,7 +1,40 @@
 import { query, mutation } from "./_generated/server";
+import { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { requireSession, requireAdmin } from "./sessions";
+import { Id } from "./_generated/dataModel";
+
+// Recompute last_visit_date / last_visit_text on the client from their appointments.
+// Finds the appointment with the latest date string; falls back to most recent by creation.
+async function refreshLastVisit(ctx: MutationCtx, contactId: Id<"clients">) {
+  const all = await ctx.db
+    .query("appointments")
+    .withIndex("by_contact_and_date", (q) => q.eq("contact_id", contactId))
+    .collect();
+
+  const withDate = all.filter((a) => !!a.date);
+  withDate.sort((a, b) => (b.date! > a.date! ? 1 : -1));
+
+  const latest = withDate[0] ?? all.sort((a, b) => b._creationTime - a._creationTime)[0];
+
+  await ctx.db.patch(contactId, {
+    last_visit_date: latest?.date,
+    last_visit_text: latest?.note_text,
+  });
+}
+
+export const backfillLastVisits = mutation({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const clients = await ctx.db.query("clients").collect();
+    for (const client of clients) {
+      await refreshLastVisit(ctx, client._id);
+    }
+    return clients.length;
+  },
+});
 
 export const getAppointmentsByContact = query({
   args: {
@@ -46,6 +79,8 @@ export const addAppointment = mutation({
       createdById: user._id,
       created_at:  Date.now(),
     });
+
+    await refreshLastVisit(ctx, args.contactId);
   },
 });
 
@@ -78,7 +113,12 @@ export const updateAppointment = mutation({
       note_text: note,
       groomer:   args.groomer?.trim() || undefined,
       price:     args.price,
+      editedBy:  user.displayName,
+      editedById: user._id,
+      edited_at: Date.now(),
     });
+
+    await refreshLastVisit(ctx, appt.contact_id);
   },
 });
 
@@ -92,5 +132,7 @@ export const deleteAppointment = mutation({
     const appt = await ctx.db.get(args.appointmentId);
     if (!appt) throw new Error("Appointment not found");
     await ctx.db.delete(args.appointmentId);
+
+    await refreshLastVisit(ctx, appt.contact_id);
   },
 });

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+
 import { useAuth } from "../context/AuthContext";
 import { parseContactsXml } from "../utils/xml";
 import Icon from "../assets/Icon";
@@ -8,12 +9,12 @@ import UserManagement from "../components/UserManagement";
 
 export default function AdminView() {
   const { user } = useAuth();
-  const fileRef     = useRef(null);
-  const importBatch = useMutation(api.clients.importBatch);
+  const fileRef           = useRef(null);
+  const importBatch       = useMutation(api.clients.importBatch);
 
-  const [status,   setStatus]   = useState("idle");
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [errorMsg, setErrorMsg] = useState("");
+  const [status,       setStatus]       = useState("idle");
+  const [progress,     setProgress]     = useState({ done: 0, total: 0 });
+  const [errorMsg,     setErrorMsg]     = useState("");
 
   async function handleFileChange(e) {
     const file = e.target.files?.[0];
@@ -54,6 +55,7 @@ export default function AdminView() {
   }
 
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+
 
   return (
     <div className="space-y-6">
@@ -113,6 +115,7 @@ export default function AdminView() {
           </div>
         )}
       </div>
+
     </div>
   );
 }

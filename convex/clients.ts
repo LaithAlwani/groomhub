@@ -83,6 +83,14 @@ export const searchByPhone = query({
   },
 });
 
+export const getTotalCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const clients = await ctx.db.query("clients").collect();
+    return clients.length;
+  },
+});
+
 export const listClients = query({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {

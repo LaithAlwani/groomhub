@@ -8,9 +8,9 @@ import NewClientModal from "../components/NewClientModal";
 
 export default function ClientsView({ searchQuery, onSelectContact }) {
   const [showModal,      setShowModal]      = useState(false);
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const debounceRef = useRef(null);
-  const sentinelRef = useRef(null);
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery ?? "");
+  const debounceRef  = useRef(null);
+  const sentinelRef  = useRef(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -25,11 +25,11 @@ export default function ClientsView({ searchQuery, onSelectContact }) {
     api.clients.searchByName,
     isSearching && !phoneMode ? { query: debouncedQuery } : "skip",
   );
-
   const phoneResults = useQuery(
     api.clients.searchByPhone,
     isSearching && phoneMode ? { query: debouncedQuery } : "skip",
   );
+  const totalCount = useQuery(api.clients.getTotalCount);
 
   const { results: pagedContacts, status, loadMore } = usePaginatedQuery(
     api.clients.listClients,
@@ -48,9 +48,7 @@ export default function ClientsView({ searchQuery, onSelectContact }) {
   const canLoadMore = !isSearching && status === "CanLoadMore";
 
   const handleIntersect = useCallback(
-    (entries) => {
-      if (entries[0].isIntersecting && canLoadMore) loadMore(50);
-    },
+    (entries) => { if (entries[0].isIntersecting && canLoadMore) loadMore(50); },
     [canLoadMore, loadMore],
   );
 
@@ -64,10 +62,13 @@ export default function ClientsView({ searchQuery, onSelectContact }) {
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-title text-text-primary">Clients</h1>
-          <p className="text-sm text-text-secondary mt-0.5">Manage your client list and their pets</p>
+          <h1 className="text-xl font-bold text-text-primary">Clients</h1>
+          <p className="text-sm text-text-muted mt-0.5">
+            {totalCount != null ? `${totalCount} total clients` : "Manage your client list and their pets"}
+          </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -78,44 +79,67 @@ export default function ClientsView({ searchQuery, onSelectContact }) {
         </button>
       </div>
 
+      {/* List */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="bg-background-card border border-border rounded-2xl p-4 animate-pulse">
-              <div className="h-4 bg-border rounded w-3/4 mb-3" />
-              <div className="h-3 bg-background-sidebar rounded w-1/2 mb-2" />
-              <div className="h-3 bg-background-sidebar rounded w-2/3" />
+        <div className="bg-background-card border border-border rounded-2xl shadow-card overflow-hidden">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-border last:border-0 animate-pulse">
+              <div className="w-9 h-9 rounded-xl bg-border shrink-0" />
+              <div className="flex-1">
+                <div className="h-3.5 bg-border rounded w-40 mb-2" />
+                <div className="h-3 bg-background-sidebar rounded w-56" />
+              </div>
+              <div className="hidden sm:block h-3 bg-background-sidebar rounded w-28" />
+              <div className="hidden md:block h-3 bg-background-sidebar rounded w-20" />
+              <div className="h-6 bg-background-sidebar rounded-full w-12" />
             </div>
           ))}
         </div>
       ) : contacts.length === 0 ? (
-        <div className="text-center py-16 text-text-muted">
-          <Icon name="clients" className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-medium">No clients found</p>
-          {isSearching && <p className="text-xs mt-1">Try a different name or phone number</p>}
+        <div className="bg-background-card border border-border rounded-2xl shadow-card py-20 text-center">
+          <Icon name="clients" className="w-10 h-10 mx-auto mb-3 text-border" />
+          <p className="text-sm font-medium text-text-secondary">No clients found</p>
+          {isSearching
+            ? <p className="text-xs text-text-muted mt-1">Try a different name or phone number</p>
+            : <button
+                onClick={() => setShowModal(true)}
+                className="mt-3 text-sm text-primary hover:text-primary-hover font-medium transition-colors"
+              >
+                Add your first client
+              </button>
+          }
         </div>
       ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-background-card border border-border rounded-2xl shadow-card overflow-hidden">
+          {/* Column headers */}
+          <div className="flex items-center gap-4 px-5 py-2.5 border-b border-border bg-background-sidebar">
+            <div className="w-9 shrink-0" />
+            <div className="flex-1 text-xs font-medium text-text-muted uppercase tracking-widest">Name</div>
+            <div className="hidden sm:block text-xs font-medium text-text-muted uppercase tracking-widest w-36 shrink-0">Phone</div>
+            <div className="hidden md:block text-xs font-medium text-text-muted uppercase tracking-widest w-28 shrink-0">Last Visit</div>
+            <div className="text-xs font-medium text-text-muted uppercase tracking-widest shrink-0">Pets</div>
+            <div className="w-4 shrink-0" />
+          </div>
+
+          {/* Rows */}
+          <div className="divide-y divide-border">
             {contacts.map((contact) => (
               <ClientCard key={contact._id} contact={contact} onClick={onSelectContact} />
             ))}
           </div>
 
-          <div ref={sentinelRef} className="h-8 mt-4" />
-
+          {/* Load more sentinel */}
+          <div ref={sentinelRef} />
           {status === "LoadingMore" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-background-card border border-border rounded-2xl p-4 animate-pulse">
-                  <div className="h-4 bg-border rounded w-3/4 mb-3" />
-                  <div className="h-3 bg-background-sidebar rounded w-1/2 mb-2" />
-                  <div className="h-3 bg-background-sidebar rounded w-2/3" />
-                </div>
-              ))}
+            <div className="flex items-center gap-4 px-5 py-3.5 border-t border-border animate-pulse">
+              <div className="w-9 h-9 rounded-xl bg-border shrink-0" />
+              <div className="flex-1">
+                <div className="h-3.5 bg-border rounded w-32 mb-2" />
+                <div className="h-3 bg-background-sidebar rounded w-48" />
+              </div>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {showModal && <NewClientModal onClose={() => setShowModal(false)} />}

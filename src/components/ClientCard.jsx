@@ -4,62 +4,66 @@ export default function ClientCard({ contact, onClick }) {
   const primaryPhone = contact.phones?.[0] ?? null;
   const petCount     = contact.pet_count ?? 0;
   const lastDate     = contact.last_visit_date ?? null;
-  const lastNote     = contact.last_visit_text ?? null;
+
+  const initials = contact.client_name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <button
       onClick={() => onClick?.(contact)}
-      className="w-full text-left bg-background-card rounded-xl shadow-card border border-border px-5 py-4 hover:border-primary hover:shadow-soft transition-all duration-150 cursor-pointer"
+      className="w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-ui-hover transition-colors group"
     >
-      {/* Name + pet count */}
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-base font-semibold text-text-primary truncate">
+      {/* Avatar */}
+      <div className="w-9 h-9 rounded-xl bg-primary-light text-primary text-sm font-bold flex items-center justify-center shrink-0">
+        {initials}
+      </div>
+
+      {/* Name + email */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-text-primary truncate group-hover:text-primary transition-colors">
           {contact.client_name}
-        </span>
-        {petCount > 0 && (
-          <span className="flex items-center gap-1 text-xs text-text-muted bg-background-sidebar rounded-full px-2.5 py-0.5 shrink-0">
-            <Icon name="paw" className="w-3 h-3 text-text-muted" />
-            {petCount}
-          </span>
-        )}
+        </p>
+        <p className="text-xs text-text-muted truncate mt-0.5">
+          {contact.email ?? "No email on file"}
+        </p>
       </div>
 
       {/* Phone */}
-      {primaryPhone && (
-        <div className="mt-1.5 flex items-center gap-1.5 text-sm text-text-secondary">
-          <Icon name="phone-work" className="w-3.5 h-3.5 text-text-muted shrink-0" />
-          <span>{primaryPhone.number}</span>
-          {primaryPhone.type && (
-            <span className="text-xs text-text-muted">· {primaryPhone.type}</span>
-          )}
-        </div>
-      )}
-
-      {/* Email */}
-      <div className="mt-1.5 flex items-center gap-1.5 text-sm">
-        <Icon name="mail" className="w-3.5 h-3.5 text-text-muted shrink-0" />
-        {contact.email
-          ? <span className="text-text-secondary truncate">{contact.email}</span>
-          : <span className="text-text-muted italic">No email on file</span>
+      <div className="hidden sm:flex items-center gap-1.5 text-sm text-text-secondary w-36 shrink-0">
+        {primaryPhone
+          ? <>
+              <Icon name="phone-work" className="w-3.5 h-3.5 text-text-muted shrink-0" />
+              <span className="truncate">{primaryPhone.number}</span>
+            </>
+          : <span className="text-text-muted text-xs italic">No phone</span>
         }
       </div>
 
       {/* Last visit */}
-      {(lastDate || lastNote) && (
-        <div className="mt-2.5 border-t border-border pt-2.5 flex flex-col gap-1">
-          {lastDate && (
-            <div className="flex items-center gap-1.5 text-xs text-text-muted">
-              <Icon name="calendar" className="w-3 h-3 text-text-muted shrink-0" />
-              <span>Last visit: {lastDate}</span>
-            </div>
-          )}
-          {lastNote && (
-            <p className="text-xs text-text-muted leading-relaxed line-clamp-2">
-              {lastNote}
-            </p>
-          )}
-        </div>
-      )}
+      <div className="hidden md:block text-xs text-text-muted w-28 shrink-0">
+        {lastDate
+          ? <span className="flex items-center gap-1"><Icon name="calendar" className="w-3 h-3" />{lastDate}</span>
+          : <span className="italic">No visits yet</span>
+        }
+      </div>
+
+      {/* Pets badge */}
+      <div className="shrink-0">
+        {petCount > 0
+          ? <span className="flex items-center gap-1 text-xs text-text-muted bg-background-sidebar rounded-full px-2.5 py-1">
+              <Icon name="paw" className="w-3 h-3" />
+              {petCount}
+            </span>
+          : <span className="text-xs text-border px-2.5 py-1">—</span>
+        }
+      </div>
+
+      {/* Arrow */}
+      <Icon name="chevron-left" className="w-4 h-4 text-text-muted rotate-180 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
     </button>
   );
 }
