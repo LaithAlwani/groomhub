@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useClientDetail } from "../hooks/useClientDetail";
+import { phoneIcon } from "../utils/phone";
 import Icon from "../assets/Icon";
 import PetCard from "../components/PetCard";
 import AppointmentRow from "../components/AppointmentRow";
@@ -55,7 +56,7 @@ export default function ClientDetailView({ contactId, onBack }) {
             <div className="flex flex-wrap gap-x-6 gap-y-1.5">
               {contact.phones?.map((p, i) => (
                 <div key={i} className="flex items-center gap-1.5 text-sm text-text-secondary">
-                  <Icon name="phone-work" className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                  <Icon name={phoneIcon(p.type)} className="w-3.5 h-3.5 text-text-muted shrink-0" />
                   <span>{p.number}</span>
                   {p.type && <span className="text-xs text-text-muted bg-background-sidebar px-1.5 py-0.5 rounded-md">{p.type}</span>}
                 </div>

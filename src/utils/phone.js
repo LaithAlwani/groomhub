@@ -1,3 +1,10 @@
+export function phoneIcon(type) {
+  const t = type?.toLowerCase();
+  if (t === "home")                  return "phone-home";
+  if (t === "mobile" || t === "cell") return "phone";
+  return "phone-work"; // main, work, or anything else
+}
+
 /**
  * Returns true if the query looks like a phone number (digits, dashes, spaces, parens).
  */

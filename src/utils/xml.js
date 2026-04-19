@@ -51,7 +51,7 @@ export function parseContactsXml(xmlText) {
         const digits = normalized.replace(/\D/g, "");
         if (seenDigits.has(digits)) return null;
         seenDigits.add(digits);
-        return { number: normalized, type: fieldName.trim() === "Phone" ? "main" : "cell" };
+        return { number: normalized, type: fieldName.trim() === "Phone" ? "main" : "mobile" };
       })
       .filter(Boolean);
 

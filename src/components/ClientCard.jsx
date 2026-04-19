@@ -1,4 +1,5 @@
 import Icon from "../assets/Icon";
+import { phoneIcon } from "../utils/phone";
 
 export default function ClientCard({ contact, onClick }) {
   const primaryPhone = contact.phones?.[0] ?? null;
@@ -36,7 +37,7 @@ export default function ClientCard({ contact, onClick }) {
       <div className="hidden sm:flex items-center gap-1.5 text-sm text-text-secondary w-36 shrink-0">
         {primaryPhone
           ? <>
-              <Icon name="phone-work" className="w-3.5 h-3.5 text-text-muted shrink-0" />
+              <Icon name={phoneIcon(primaryPhone.type)} className="w-3.5 h-3.5 text-text-muted shrink-0" />
               <span className="truncate">{primaryPhone.number}</span>
             </>
           : <span className="text-text-muted text-xs italic">No phone</span>

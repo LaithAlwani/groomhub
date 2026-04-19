@@ -4,48 +4,75 @@ import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 
+const INPUT = "w-full border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 bg-background-card";
+const INPUT_OK  = `${INPUT} border-border focus:ring-primary`;
+const INPUT_ERR = `${INPUT} border-danger focus:ring-danger`;
+
+function fieldCls(err) { return err ? INPUT_ERR : INPUT_OK; }
+
 export default function EditClientModal({ client, onClose }) {
   const { user } = useAuth();
   const updateClient = useMutation(api.clients.updateClient);
 
-  const [firstName, setFirstName] = useState(client.first_name ?? "");
-  const [lastName,  setLastName]  = useState(client.last_name  ?? "");
-  const [email,     setEmail]     = useState(client.email      ?? "");
-  const [phones,    setPhones]    = useState(
+  const [firstName,     setFirstName]     = useState(client.first_name ?? "");
+  const [lastName,      setLastName]      = useState(client.last_name  ?? "");
+  const [email,         setEmail]         = useState(client.email      ?? "");
+  const [emailDeclined, setEmailDeclined] = useState(!client.email);
+  const [phones,        setPhones]        = useState(
     client.phones?.length ? client.phones : [{ number: "", type: "main" }],
   );
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [loading,     setLoading]     = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [saveError,   setSaveError]   = useState("");
+
+  function clearErr(field) {
+    setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+  }
 
   function setPhone(i, field, value) {
     setPhones((prev) => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p));
+    clearErr("phones");
   }
 
   function addPhone() {
-    setPhones((prev) => [...prev, { number: "", type: "cell" }]);
+    setPhones((prev) => [...prev, { number: "", type: "mobile" }]);
   }
 
   function removePhone(i) {
     setPhones((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  function validate() {
+    const errors = {};
+    if (!firstName.trim()) errors.firstName = "First name is required.";
+    if (!lastName.trim())  errors.lastName  = "Last name is required.";
+    const hasPhone = phones.some((p) => p.number.trim());
+    if (!hasPhone) errors.phones = "At least one phone number is required.";
+    if (!emailDeclined) {
+      if (!email.trim())                          errors.email = "Email is required, or check the box below.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) errors.email = "Please enter a valid email address.";
+    }
+    return errors;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
-    if (!firstName.trim()) { setError("First name is required"); return; }
+    setSaveError("");
+    const errors = validate();
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
     setLoading(true);
     try {
       await updateClient({
         sessionToken: user.sessionToken,
         clientId:     client._id,
         first_name:   firstName.trim(),
-        last_name:    lastName.trim() || undefined,
+        last_name:    lastName.trim(),
         phones:       phones.filter((p) => p.number.trim()),
-        email:        email.trim() || undefined,
+        email:        emailDeclined ? undefined : email.trim(),
       });
       onClose();
     } catch (err) {
-      setError(err.message ?? "Failed to save changes");
+      setSaveError(err.message ?? "Failed to save changes");
     } finally {
       setLoading(false);
     }
@@ -70,29 +97,30 @@ export default function EditClientModal({ client, onClose }) {
               </label>
               <input
                 type="text"
-                required
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                onChange={(e) => { setFirstName(e.target.value); clearErr("firstName"); }}
+                className={fieldCls(fieldErrors.firstName)}
               />
+              {fieldErrors.firstName && <p className="text-xs text-danger mt-1">{fieldErrors.firstName}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Last Name
+                Last Name <span className="text-danger">*</span>
               </label>
               <input
                 type="text"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                onChange={(e) => { setLastName(e.target.value); clearErr("lastName"); }}
+                className={fieldCls(fieldErrors.lastName)}
               />
+              {fieldErrors.lastName && <p className="text-xs text-danger mt-1">{fieldErrors.lastName}</p>}
             </div>
           </div>
 
           {/* Phones */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
-              Phone Numbers
+              Phone Numbers <span className="text-danger">*</span>
             </label>
             <div className="space-y-2">
               {phones.map((p, i) => (
@@ -102,7 +130,7 @@ export default function EditClientModal({ client, onClose }) {
                     value={p.number}
                     onChange={(e) => setPhone(i, "number", e.target.value)}
                     placeholder="613-555-0100"
-                    className="flex-1 border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                    className={fieldCls(fieldErrors.phones && !p.number.trim())}
                   />
                   <select
                     value={p.type ?? "main"}
@@ -110,7 +138,7 @@ export default function EditClientModal({ client, onClose }) {
                     className="border border-border rounded-xl px-2 py-2 text-sm text-text-secondary bg-background-card focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="main">Main</option>
-                    <option value="cell">Cell</option>
+                    <option value="mobile">Mobile</option>
                     <option value="home">Home</option>
                     <option value="work">Work</option>
                   </select>
@@ -123,6 +151,7 @@ export default function EditClientModal({ client, onClose }) {
                 </div>
               ))}
             </div>
+            {fieldErrors.phones && <p className="text-xs text-danger mt-1">{fieldErrors.phones}</p>}
             {phones.length < 5 && (
               <button type="button" onClick={addPhone}
                 className="mt-2 text-sm text-primary hover:text-primary-hover font-medium transition-colors flex items-center gap-1">
@@ -135,19 +164,33 @@ export default function EditClientModal({ client, onClose }) {
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Email
+              Email Address <span className="text-danger">*</span>
             </label>
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="optional"
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+              disabled={emailDeclined}
+              onChange={(e) => { setEmail(e.target.value); clearErr("email"); }}
+              placeholder="jane@example.com"
+              className={`${fieldCls(fieldErrors.email)} disabled:opacity-40 disabled:cursor-not-allowed`}
             />
+            {fieldErrors.email && <p className="text-xs text-danger mt-1">{fieldErrors.email}</p>}
+            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={emailDeclined}
+                onChange={(e) => { setEmailDeclined(e.target.checked); clearErr("email"); }}
+                className="w-4 h-4 rounded border-border accent-primary"
+              />
+              <span className="text-xs text-text-muted">Client declined to provide an email address</span>
+            </label>
           </div>
 
-          {error && (
-            <p className="text-sm text-danger bg-tag-red rounded-xl px-3 py-2">{error}</p>
+          {saveError && (
+            <div className="flex items-center gap-2 text-sm text-danger bg-tag-red rounded-xl px-3 py-2">
+              <Icon name="alert" className="w-4 h-4 shrink-0" />
+              {saveError}
+            </div>
           )}
 
           <div className="flex gap-3 pt-1">

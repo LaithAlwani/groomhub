@@ -5,6 +5,12 @@ import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 import { TEMPERAMENTS } from "../constants/pets";
 
+const INPUT = "w-full border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 bg-background-card";
+const INPUT_OK  = `${INPUT} border-border focus:ring-primary`;
+const INPUT_ERR = `${INPUT} border-danger focus:ring-danger`;
+
+function fieldCls(err) { return err ? INPUT_ERR : INPUT_OK; }
+
 export default function PetFormModal({ clientId, pet, onClose }) {
   const { user } = useAuth();
   const addPet    = useMutation(api.pets.addPet);
@@ -14,7 +20,7 @@ export default function PetFormModal({ clientId, pet, onClose }) {
 
   const [name,        setName]        = useState(pet?.name        ?? "");
   const [breed,       setBreed]       = useState(pet?.breed       ?? "");
-  const [species,     setSpecies]     = useState(pet?.species     ?? "dog");
+  const [species,     setSpecies]     = useState(pet?.species     ?? "");
   const [gender,      setGender]      = useState(pet?.gender      ?? "");
   const [birthdate,   setBirthdate]   = useState(pet?.birthdate   ?? "");
   const [weight,      setWeight]      = useState(pet?.weight != null ? String(pet.weight) : "");
@@ -22,25 +28,42 @@ export default function PetFormModal({ clientId, pet, onClose }) {
   const [allergies,   setAllergies]   = useState(pet?.allergies?.join(", ") ?? "");
   const [notes,       setNotes]       = useState(pet?.notes       ?? "");
   const [isActive,    setIsActive]    = useState(pet?.is_active   ?? true);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [saveError,   setSaveError]   = useState("");
   const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState("");
+
+  function clearErr(field) {
+    setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+  }
 
   function parseAllergies(raw) {
     return raw.split(",").map((s) => s.trim()).filter(Boolean);
   }
 
+  function validate() {
+    const errors = {};
+    if (!name.trim())     errors.name      = "Pet name is required.";
+    if (!breed.trim())    errors.breed     = "Breed is required.";
+    if (!species)         errors.species   = "Species is required.";
+    if (!gender)          errors.gender    = "Gender is required.";
+    if (!birthdate)       errors.birthdate = "Birthday is required.";
+    return errors;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
+    setSaveError("");
+    const errors = validate();
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
     setLoading(true);
 
     const payload = {
       sessionToken: user.sessionToken,
       name:         name.trim(),
-      breed:        breed.trim() || "unknown",
-      species:      species || undefined,
-      gender:       gender.trim() || undefined,
-      birthdate:    birthdate || undefined,
+      breed:        breed.trim(),
+      species,
+      gender,
+      birthdate,
       weight:       weight ? parseFloat(weight) : undefined,
       temperament:  temperament || undefined,
       allergies:    parseAllergies(allergies).length ? parseAllergies(allergies) : undefined,
@@ -56,7 +79,7 @@ export default function PetFormModal({ clientId, pet, onClose }) {
       }
       onClose();
     } catch (err) {
-      setError(err.message ?? "Failed to save pet");
+      setSaveError(err.message ?? "Failed to save pet");
     } finally {
       setLoading(false);
     }
@@ -80,15 +103,16 @@ export default function PetFormModal({ clientId, pet, onClose }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Pet Name
+                Pet Name <span className="text-danger">*</span>
               </label>
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); clearErr("name"); }}
                 placeholder="e.g. Max"
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                className={fieldCls(fieldErrors.name)}
               />
+              {fieldErrors.name && <p className="text-xs text-danger mt-1">{fieldErrors.name}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
@@ -96,23 +120,26 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               </label>
               <input
                 type="text"
-                required
                 value={breed}
-                onChange={(e) => setBreed(e.target.value)}
+                onChange={(e) => { setBreed(e.target.value); clearErr("breed"); }}
                 placeholder="e.g. Shih Tzu"
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                className={fieldCls(fieldErrors.breed)}
               />
+              {fieldErrors.breed && <p className="text-xs text-danger mt-1">{fieldErrors.breed}</p>}
             </div>
           </div>
 
           {/* Species */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Species</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Species <span className="text-danger">*</span>
+            </label>
             <select
               value={species}
-              onChange={(e) => setSpecies(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary bg-background-card focus:outline-none focus:ring-2 focus:ring-primary"
+              onChange={(e) => { setSpecies(e.target.value); clearErr("species"); }}
+              className={fieldCls(fieldErrors.species)}
             >
+              <option value="">— Select species —</option>
               <option value="dog">Dog</option>
               <option value="cat">Cat</option>
               <option value="rabbit">Rabbit</option>
@@ -123,32 +150,39 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               <option value="reptile">Reptile</option>
               <option value="other">Other</option>
             </select>
+            {fieldErrors.species && <p className="text-xs text-danger mt-1">{fieldErrors.species}</p>}
           </div>
 
           {/* Gender + Birthdate */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">Gender</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Gender <span className="text-danger">*</span>
+              </label>
               <select
                 value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary bg-background-card focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => { setGender(e.target.value); clearErr("gender"); }}
+                className={fieldCls(fieldErrors.gender)}
               >
-                <option value="">Unknown</option>
+                <option value="">— Select gender —</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="neutered">Neutered</option>
                 <option value="spayed">Spayed</option>
               </select>
+              {fieldErrors.gender && <p className="text-xs text-danger mt-1">{fieldErrors.gender}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">Birthdate</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Birthday <span className="text-danger">*</span>
+              </label>
               <input
                 type="date"
                 value={birthdate}
-                onChange={(e) => setBirthdate(e.target.value)}
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary bg-background-card focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => { setBirthdate(e.target.value); clearErr("birthdate"); }}
+                className={fieldCls(fieldErrors.birthdate)}
               />
+              {fieldErrors.birthdate && <p className="text-xs text-danger mt-1">{fieldErrors.birthdate}</p>}
             </div>
           </div>
 
@@ -164,7 +198,7 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
               placeholder="e.g. 12.5"
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+              className={INPUT_OK}
             />
           </div>
 
@@ -200,7 +234,7 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               value={allergies}
               onChange={(e) => setAllergies(e.target.value)}
               placeholder="e.g. chicken, wheat"
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+              className={INPUT_OK}
             />
           </div>
 
@@ -212,7 +246,7 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Grooming preferences, behaviour notes…"
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card resize-none"
+              className={`${INPUT_OK} resize-none`}
             />
           </div>
 
@@ -234,8 +268,11 @@ export default function PetFormModal({ clientId, pet, onClose }) {
             </div>
           )}
 
-          {error && (
-            <p className="text-sm text-danger bg-tag-red rounded-xl px-3 py-2">{error}</p>
+          {saveError && (
+            <div className="flex items-center gap-2 text-sm text-danger bg-tag-red rounded-xl px-3 py-2">
+              <Icon name="alert" className="w-4 h-4 shrink-0" />
+              {saveError}
+            </div>
           )}
 
           <div className="flex gap-3 pt-1">

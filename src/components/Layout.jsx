@@ -89,10 +89,10 @@ export default function Layout({ page, onNavigate, searchQuery, onSearch, showSe
                 />
                 <input
                   type="text"
-                  placeholder="Search clients or pets…"
+                  placeholder="Search clients by name or phone number..."
                   value={searchQuery}
                   onChange={(e) => onSearch(e.target.value)}
-                  className="w-64 border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
+                  className="w-full md:w-3/4 lg:w-1/2 border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
                 />
               </div>
             )}
