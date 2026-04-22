@@ -10,12 +10,10 @@ import AdminView from "./views/AdminView";
 function AppShell() {
   const { user } = useAuth();
   const [page,              setPage]              = useState("dashboard");
-  const [searchQuery,       setSearchQuery]       = useState("");
   const [selectedContactId, setSelectedContactId] = useState(null);
 
   useEffect(() => {
     setPage("dashboard");
-    setSearchQuery("");
     setSelectedContactId(null);
   }, [user?.userId]);
 
@@ -23,7 +21,6 @@ function AppShell() {
 
   function handleNavigate(id) {
     setPage(id);
-    setSearchQuery("");
     setSelectedContactId(null);
   }
 
@@ -45,7 +42,7 @@ function AppShell() {
       if (selectedContactId) {
         return <ClientDetailView contactId={selectedContactId} onBack={handleBack} />;
       }
-      return <ClientsView searchQuery={searchQuery} onSelectContact={handleSelectContact} />;
+      return <ClientsView onSelectContact={handleSelectContact} />;
     }
 
     if (page === "admin") {
@@ -63,9 +60,6 @@ function AppShell() {
     <Layout
       page={page}
       onNavigate={handleNavigate}
-      searchQuery={searchQuery}
-      onSearch={setSearchQuery}
-      showSearch={page === "clients" && !selectedContactId}
     >
       {renderPage()}
     </Layout>

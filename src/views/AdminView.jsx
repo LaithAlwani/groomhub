@@ -1,16 +1,21 @@
 import { useState, useRef } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 import { useAuth } from "../context/AuthContext";
+import { useDashboardStats } from "../hooks/useDashboardStats";
 import { parseContactsXml } from "../utils/xml";
 import Icon from "../assets/Icon";
+import StatCard from "../components/StatCard";
 import UserManagement from "../components/UserManagement";
 
 export default function AdminView() {
   const { user } = useAuth();
   const fileRef           = useRef(null);
   const importBatch       = useMutation(api.clients.importBatch);
+
+  const totalClients = useQuery(api.clients.getTotalCount);
+  const { stats } = useDashboardStats();
 
   const [status,       setStatus]       = useState("idle");
   const [progress,     setProgress]     = useState({ done: 0, total: 0 });
@@ -62,6 +67,15 @@ export default function AdminView() {
       <div>
         <h1 className="text-title text-text-primary">Admin</h1>
         <p className="text-sm text-text-secondary mt-0.5">Management tools</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 max-w-sm">
+        <StatCard icon="clients" label="Total Clients" value={totalClients} />
+        <StatCard
+          icon="dollar"
+          label="Weekly Revenue"
+          value={stats?.weekRevenue != null ? `$${stats.weekRevenue.toFixed(2)}` : undefined}
+        />
       </div>
 
       <UserManagement />

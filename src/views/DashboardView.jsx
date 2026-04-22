@@ -22,17 +22,10 @@ export default function DashboardView() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <StatCard icon="calendar" label="Today's Appointments" comingSoon />
         <StatCard icon="schedule" label="Pending Approvals"    comingSoon />
         <StatCard icon="clients"  label="Today's Clients"      value={stats?.todayClients} />
-        <StatCard
-          icon="dollar"
-          label="Weekly Revenue"
-          value={stats?.weekRevenue != null ? `$${stats.weekRevenue.toFixed(2)}` : undefined}
-          adminOnly
-          isAdmin={user?.isAdmin}
-        />
       </div>
 
       <section>

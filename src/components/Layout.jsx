@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { id: "settings",  label: "Settings",   icon: "settings"  },
 ];
 
-export default function Layout({ page, onNavigate, searchQuery, onSearch, showSearch, children }) {
+export default function Layout({ page, onNavigate, children }) {
   const { user, logout } = useAuth();
 
   return (
@@ -80,23 +80,7 @@ export default function Layout({ page, onNavigate, searchQuery, onSearch, showSe
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-background-card border-b border-border px-6 h-14 flex items-center gap-4 shrink-0">
-          <div className="flex-1">
-            {showSearch && (
-              <div className="relative">
-                <Icon
-                  name="search"
-                  className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Search clients by name or phone number..."
-                  value={searchQuery}
-                  onChange={(e) => onSearch(e.target.value)}
-                  className="w-full md:w-3/4 lg:w-1/2 border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary bg-background-card"
-                />
-              </div>
-            )}
-          </div>
+          <div className="flex-1" />
 
           <button className="text-sm text-text-secondary hover:text-text-primary font-medium transition-colors">
             Support
