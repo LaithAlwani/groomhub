@@ -71,7 +71,7 @@ export default function PetCard({ pet, user, onEdit, onDelete, confirmDelete, on
         </div>
 
         {pet.is_active === false && (
-          <span className="text-[10px] font-medium bg-border text-text-muted px-2 py-0.5 rounded-full w-fit">
+          <span className="text-[10px] font-medium bg-border text-text-muted px-2 py-1 rounded-full w-fit">
             Inactive
           </span>
         )}
@@ -80,9 +80,9 @@ export default function PetCard({ pet, user, onEdit, onDelete, confirmDelete, on
           <div>
             <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Allergies</p>
             <div className="flex flex-wrap gap-1">
-              {pet.allergies.map((a) => (
-                <span key={a} className="text-[10px] font-medium bg-tag-red text-tag-redText px-2 py-0.5 rounded-full">
-                  ⚠ {a}
+              {pet.allergies.map((allergy) => (
+                <span key={allergy} className="text-[10px] font-medium bg-tag-red text-tag-redText px-2 py-1 rounded-full">
+                  {allergy}
                 </span>
               ))}
             </div>

@@ -233,7 +233,7 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               type="text"
               value={allergies}
               onChange={(e) => setAllergies(e.target.value)}
-              placeholder="e.g. chicken, wheat"
+              placeholder="e.g. shampoo, soap"
               className={INPUT_OK}
             />
           </div>
