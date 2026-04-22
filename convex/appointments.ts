@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { requireSession, requireAdmin } from "./sessions";
+import { requireSession, requireAdmin, requireSuperAdmin } from "./sessions";
 import { Id } from "./_generated/dataModel";
 
 // Recompute last_visit_date / last_visit_text on the client from their appointments.
@@ -100,7 +100,8 @@ export const updateAppointment = mutation({
     const appt = await ctx.db.get(args.appointmentId);
     if (!appt) throw new Error("Appointment not found");
 
-    if (!user.isAdmin && appt.createdById !== user._id) {
+    const canEditAny = user.role === "admin" || user.role === "super_admin";
+    if (!canEditAny && appt.createdById !== user._id) {
       throw new Error("Forbidden: you can only edit your own appointments");
     }
 
@@ -128,7 +129,7 @@ export const deleteAppointment = mutation({
     appointmentId: v.id("appointments"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.sessionToken);
+    await requireSuperAdmin(ctx, args.sessionToken);
     const appt = await ctx.db.get(args.appointmentId);
     if (!appt) throw new Error("Appointment not found");
     await ctx.db.delete(args.appointmentId);

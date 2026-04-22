@@ -25,9 +25,16 @@ export default function ClientCard({ contact, onClick }) {
 
       {/* Name + email */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-text-primary truncate group-hover:text-primary transition-colors">
-          {contact.client_name}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-text-primary truncate group-hover:text-primary transition-colors">
+            {contact.client_name}
+          </p>
+          {contact.is_blacklisted && (
+            <span className="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full bg-tag-red text-tag-redText">
+              Blacklisted
+            </span>
+          )}
+        </div>
         <p className="text-xs text-text-muted truncate mt-0.5">
           {contact.email ?? "No email on file"}
         </p>

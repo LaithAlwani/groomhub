@@ -15,9 +15,16 @@ export default function PetCard({ pet, user, onEdit, onDelete, confirmDelete, on
             {(pet.name || "?")[0].toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-text-primary text-sm truncate leading-tight">
-              {pet.name || <span className="italic text-text-muted">Unnamed</span>}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-text-primary text-sm truncate leading-tight">
+                {pet.name || <span className="italic text-text-muted">Unnamed</span>}
+              </p>
+              {pet.is_blacklisted && (
+                <span className="shrink-0 text-[10px] font-medium bg-tag-red text-tag-redText px-2 py-0.5 rounded-full">
+                  Blacklisted
+                </span>
+              )}
+            </div>
             <p className="text-xs text-text-muted capitalize truncate mt-0.5">
               {[pet.species, pet.breed].filter(Boolean).join(" · ") || "Unknown breed"}
             </p>
@@ -27,7 +34,7 @@ export default function PetCard({ pet, user, onEdit, onDelete, confirmDelete, on
           <button onClick={onEdit} className="p-1 text-text-muted hover:text-text-primary hover:bg-ui-active rounded-lg transition-colors">
             <Icon name="edit" className="w-3.5 h-3.5" />
           </button>
-          {user?.isAdmin && (
+          {user?.isSuperAdmin && (
             confirmDelete ? (
               <div className="flex items-center gap-1">
                 <button onClick={onConfirmDelete} className="text-xs font-medium text-white bg-danger px-1.5 py-0.5 rounded-md">Yes</button>

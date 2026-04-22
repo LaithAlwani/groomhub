@@ -27,7 +27,8 @@ export default function PetFormModal({ clientId, pet, onClose }) {
   const [temperament, setTemperament] = useState(pet?.temperament ?? "");
   const [allergies,   setAllergies]   = useState(pet?.allergies?.join(", ") ?? "");
   const [notes,       setNotes]       = useState(pet?.notes       ?? "");
-  const [isActive,    setIsActive]    = useState(pet?.is_active   ?? true);
+  const [isActive,       setIsActive]       = useState(pet?.is_active       ?? true);
+  const [isBlacklisted,  setIsBlacklisted]  = useState(pet?.is_blacklisted  ?? false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saveError,   setSaveError]   = useState("");
   const [loading,     setLoading]     = useState(false);
@@ -68,7 +69,8 @@ export default function PetFormModal({ clientId, pet, onClose }) {
       temperament:  temperament || undefined,
       allergies:    parseAllergies(allergies).length ? parseAllergies(allergies) : undefined,
       notes:        notes.trim() || undefined,
-      is_active:    isActive,
+      is_active:      isActive,
+      is_blacklisted: isBlacklisted,
     };
 
     try {
@@ -267,6 +269,27 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               </button>
             </div>
           )}
+
+          {/* Blacklist toggle */}
+          <div className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+            isBlacklisted ? "bg-tag-red border-danger/30" : "bg-background-sidebar border-border"
+          }`}>
+            <div>
+              <p className="text-sm font-medium text-text-primary">Blacklisted</p>
+              <p className="text-xs text-text-muted mt-0.5">Shows a warning when booking this pet</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsBlacklisted((v) => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isBlacklisted ? "bg-danger" : "bg-border"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isBlacklisted ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
 
           {saveError && (
             <div className="flex items-center gap-2 text-sm text-danger bg-tag-red rounded-xl px-3 py-2">

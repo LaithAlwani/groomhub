@@ -51,7 +51,7 @@ export default function DashboardView() {
                   <th className="text-left px-5 py-3 text-xs font-medium text-text-muted uppercase tracking-widest">Pet</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-text-muted uppercase tracking-widest">Groomer</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-text-muted uppercase tracking-widest">Date</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-text-muted uppercase tracking-widest">Price</th>
+                  {user?.isAdmin && <th className="text-right px-5 py-3 text-xs font-medium text-text-muted uppercase tracking-widest">Price</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -66,9 +66,11 @@ export default function DashboardView() {
                     </td>
                     <td className="px-5 py-3 text-text-secondary">{appt.groomer ?? <span className="text-text-muted">—</span>}</td>
                     <td className="px-5 py-3 text-text-muted whitespace-nowrap">{appt.date ?? "—"}</td>
-                    <td className="px-5 py-3 text-right font-medium text-text-primary">
-                      {appt.price != null ? `$${appt.price.toFixed(2)}` : <span className="text-text-muted">—</span>}
-                    </td>
+                    {user?.isAdmin && (
+                      <td className="px-5 py-3 text-right font-medium text-text-primary">
+                        {appt.price != null ? `$${appt.price.toFixed(2)}` : <span className="text-text-muted">—</span>}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

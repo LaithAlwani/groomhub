@@ -53,7 +53,14 @@ export default function ClientDetailView({ contactId, onBack }) {
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-text-primary leading-tight mb-3">{contact.client_name}</h1>
+            <div className="flex items-center gap-3 mb-3">
+              <h1 className="text-xl font-bold text-text-primary leading-tight">{contact.client_name}</h1>
+              {contact.is_blacklisted && (
+                <span className="shrink-0 text-xs font-medium bg-tag-red text-tag-redText px-2.5 py-1 rounded-full">
+                  Blacklisted
+                </span>
+              )}
+            </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1.5">
               {contact.phones?.map((p, i) => (
                 <div key={i} className="flex items-center gap-1.5 text-sm text-text-secondary">
@@ -233,8 +240,8 @@ export default function ClientDetailView({ contactId, onBack }) {
         )}
       </div>
 
-      {/* Delete client — admin only */}
-      {user?.isAdmin && (
+      {/* Delete client — super admin only */}
+      {user?.isSuperAdmin && (
         <div className="flex justify-end pt-2">
           {confirmDeleteClient ? (
             <div className="flex items-center gap-3 bg-background-card border border-danger rounded-2xl px-4 py-3 shadow-card">

@@ -10,6 +10,12 @@ const INPUT_ERR = `${INPUT} border-danger focus:ring-danger`;
 
 function fieldCls(err) { return err ? INPUT_ERR : INPUT_OK; }
 
+const ROLES = [
+  { value: "staff",       label: "Staff"       },
+  { value: "admin",       label: "Admin"       },
+  { value: "super_admin", label: "Super Admin" },
+];
+
 export default function UserFormModal({ mode, target, onClose }) {
   const { user } = useAuth();
   const createUser = useMutation(api.users.createUser);
@@ -20,10 +26,14 @@ export default function UserFormModal({ mode, target, onClose }) {
   const [displayName, setDisplayName] = useState(target?.displayName ?? "");
   const [username,    setUsername]    = useState(target?.username    ?? "");
   const [pin,         setPin]         = useState("");
-  const [isAdmin,     setIsAdmin]     = useState(target?.isAdmin     ?? false);
+  const [role,        setRole]        = useState(target?.role ?? "staff");
   const [loading,     setLoading]     = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saveError,   setSaveError]   = useState("");
+
+  const visibleRoles = ROLES.filter(
+    (r) => r.value !== "super_admin" || user.isSuperAdmin,
+  );
 
   function clearErr(field) {
     setFieldErrors((prev) => ({ ...prev, [field]: "" }));
@@ -46,8 +56,8 @@ export default function UserFormModal({ mode, target, onClose }) {
 
     if (!isEdit && !pin)
       errors.pin = "Passcode is required.";
-    else if (pin && pin.length < 6)
-      errors.pin = "Passcode must be at least 6 characters.";
+    else if (pin && pin.length < 4)
+      errors.pin = "Passcode must be at least 4 characters.";
 
     return errors;
   }
@@ -66,7 +76,7 @@ export default function UserFormModal({ mode, target, onClose }) {
           displayName:  displayName.trim(),
           username:     username.trim(),
           pin:          pin || undefined,
-          isAdmin,
+          role,
         });
       } else {
         await createUser({
@@ -74,7 +84,7 @@ export default function UserFormModal({ mode, target, onClose }) {
           displayName:  displayName.trim(),
           username:     username.trim(),
           pin,
-          isAdmin,
+          role,
         });
       }
       onClose();
@@ -144,7 +154,7 @@ export default function UserFormModal({ mode, target, onClose }) {
               type="password"
               value={pin}
               onChange={(e) => { setPin(e.target.value); clearErr("pin"); }}
-              placeholder={isEdit ? "Enter new passcode to change" : "Min. 6 characters"}
+              placeholder={isEdit ? "Enter new passcode to change" : "Min. 4 characters"}
               className={fieldCls(fieldErrors.pin)}
             />
             {fieldErrors.pin && <p className="text-xs text-danger mt-1">{fieldErrors.pin}</p>}
@@ -155,29 +165,21 @@ export default function UserFormModal({ mode, target, onClose }) {
             <label className="block text-sm font-medium text-text-secondary mb-2">
               Role <span className="text-danger">*</span>
             </label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setIsAdmin(false)}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  !isAdmin
-                    ? "bg-primary text-white border-primary"
-                    : "border-border text-text-secondary hover:bg-ui-hover"
-                }`}
-              >
-                Staff
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAdmin(true)}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  isAdmin
-                    ? "bg-primary text-white border-primary"
-                    : "border-border text-text-secondary hover:bg-ui-hover"
-                }`}
-              >
-                Admin
-              </button>
+            <div className="flex gap-2">
+              {visibleRoles.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setRole(r.value)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                    role === r.value
+                      ? "bg-primary text-white border-primary"
+                      : "border-border text-text-secondary hover:bg-ui-hover"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
             </div>
           </div>
 

@@ -18,6 +18,7 @@ export default defineSchema({
     pet_count: v.optional(v.number()),
     last_visit_date: v.optional(v.string()),
     last_visit_text: v.optional(v.string()),
+    is_blacklisted: v.optional(v.boolean()),
     // Audit
     createdBy: v.optional(v.string()),
     updatedBy: v.optional(v.string()),
@@ -43,6 +44,7 @@ export default defineSchema({
     imageId: v.optional(v.id("_storage")),
     notes: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
+    is_blacklisted: v.optional(v.boolean()),
     created_at: v.optional(v.number()),
     updated_at: v.optional(v.number()),
   })
@@ -79,7 +81,7 @@ export default defineSchema({
     displayName:     v.string(),
     username:        v.string(),
     passcode:        v.string(),
-    isAdmin:         v.boolean(),
+    role:            v.union(v.literal("super_admin"), v.literal("admin"), v.literal("staff")),
     failed_attempts: v.optional(v.number()),
   })
     .index("by_username", ["username"])

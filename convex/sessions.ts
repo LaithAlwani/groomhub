@@ -53,13 +53,27 @@ export async function requireSession(
 }
 
 /**
- * Same as requireSession but also asserts the user is an admin.
+ * Requires the caller to be an admin or super_admin.
+ * Use for create/edit operations that admins are permitted to perform.
  */
 export async function requireAdmin(
   ctx: QueryCtx | MutationCtx,
   token: string,
 ) {
   const user = await requireSession(ctx, token);
-  if (!user.isAdmin) throw new Error("Forbidden");
+  if (user.role !== "admin" && user.role !== "super_admin") throw new Error("Forbidden");
+  return user;
+}
+
+/**
+ * Requires the caller to be a super_admin.
+ * Use for all delete operations and super_admin-only actions.
+ */
+export async function requireSuperAdmin(
+  ctx: QueryCtx | MutationCtx,
+  token: string,
+) {
+  const user = await requireSession(ctx, token);
+  if (user.role !== "super_admin") throw new Error("Forbidden");
   return user;
 }

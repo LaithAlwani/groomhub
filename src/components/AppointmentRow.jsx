@@ -66,7 +66,7 @@ export default function AppointmentRow({ appt, user, onEdit, onDelete, confirmDe
                 <Icon name="edit" className="w-3.5 h-3.5" />
               </button>
             )}
-            {user?.isAdmin && (
+            {user?.isSuperAdmin && (
               confirmDelete ? (
                 <div className="flex items-center gap-1">
                   <button onClick={onConfirmDelete} className="text-xs font-medium text-white bg-danger px-2 py-1 rounded-lg">Confirm</button>

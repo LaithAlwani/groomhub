@@ -19,7 +19,8 @@ function fieldCls(hasError) {
   return `${FIELD_CLASSES.base} ${hasError ? FIELD_CLASSES.error : FIELD_CLASSES.ok}`;
 }
 
-export default function AppointmentFormModal({ contactId, appointment, pets = [], onClose }) {
+export default function AppointmentFormModal({ contactId, appointment, pets: allPets = [], onClose }) {
+  const activePets = allPets.filter((p) => p.is_active !== false);
   const { user } = useAuth();
   const addAppointment    = useMutation(api.appointments.addAppointment);
   const updateAppointment = useMutation(api.appointments.updateAppointment);
@@ -27,7 +28,8 @@ export default function AppointmentFormModal({ contactId, appointment, pets = []
   const isEdit = !!appointment;
   const users  = useQuery(api.users.listGroomers, { sessionToken: user.sessionToken });
 
-  const [petId,    setPetId]    = useState(appointment?.pet_id    ?? "");
+  const [petId,           setPetId]           = useState(appointment?.pet_id ?? "");
+  const [blacklistWarning, setBlacklistWarning] = useState(null); // pet object | null
   const [date,     setDate]     = useState(appointment?.date      ?? localDateString());
   const [noteText, setNoteText] = useState(appointment?.note_text ?? "");
   const [groomer,  setGroomer]  = useState(appointment?.groomer   ?? "");
@@ -42,7 +44,7 @@ export default function AppointmentFormModal({ contactId, appointment, pets = []
 
   function validate() {
     const errors = {};
-    if (pets.length > 0 && !petId) errors.petId    = "Please select a pet.";
+    if (activePets.length > 0 && !petId) errors.petId    = "Please select a pet.";
     if (!date.trim())               errors.date     = "Date is required.";
     if (!groomer.trim())            errors.groomer  = "Please select a groomer.";
     if (!noteText.trim())           errors.noteText = "Notes are required.";
@@ -96,6 +98,40 @@ export default function AppointmentFormModal({ contactId, appointment, pets = []
   }
 
   return (
+    <>
+    {blacklistWarning && (
+      <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50">
+        <div className="bg-background-card rounded-2xl shadow-soft w-full max-w-sm p-6 mx-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-tag-red flex items-center justify-center shrink-0">
+              <Icon name="alert" className="w-5 h-5 text-danger" />
+            </div>
+            <h3 className="font-semibold text-text-primary">Blacklisted Pet</h3>
+          </div>
+          <p className="text-sm text-text-secondary mb-5">
+            <span className="font-semibold text-text-primary">{blacklistWarning.name}</span> is blacklisted. Are you sure you want to book an appointment for this pet?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setBlacklistWarning(null)}
+              className="flex-1 border border-border text-text-secondary rounded-xl py-2 text-sm font-medium hover:bg-ui-hover transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setPetId(blacklistWarning._id);
+                clearFieldError("petId");
+                setBlacklistWarning(null);
+              }}
+              className="flex-1 bg-danger hover:bg-danger/90 text-white rounded-xl py-2 text-sm font-medium transition-colors"
+            >
+              Book Anyway
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-background-card rounded-2xl shadow-soft w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
@@ -110,18 +146,26 @@ export default function AppointmentFormModal({ contactId, appointment, pets = []
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Pet selector */}
-          {pets.length > 0 && (
+          {activePets.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
                 Pet <span className="text-danger">*</span>
               </label>
               <select
                 value={petId}
-                onChange={(e) => { setPetId(e.target.value); clearFieldError("petId"); }}
+                onChange={(e) => {
+                  const selected = activePets.find((p) => p._id === e.target.value);
+                  if (selected?.is_blacklisted) {
+                    setBlacklistWarning(selected);
+                  } else {
+                    setPetId(e.target.value);
+                    clearFieldError("petId");
+                  }
+                }}
                 className={fieldCls(!!fieldErrors.petId)}
               >
                 <option value="">— Select a pet —</option>
-                {pets.map((p) => (
+                {activePets.map((p) => (
                   <option key={p._id} value={p._id}>
                     {p.name || "Unnamed"}{p.breed ? ` (${p.breed})` : ""}
                   </option>
@@ -227,5 +271,6 @@ export default function AppointmentFormModal({ contactId, appointment, pets = []
         </form>
       </div>
     </div>
+    </>
   );
 }

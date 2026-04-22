@@ -1,6 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
-import { ConvexError, v } from "convex/values";
-import { createSession, requireSession, requireAdmin } from "./sessions";
+import { v } from "convex/values";
+import { createSession, requireSession, requireAdmin, requireSuperAdmin } from "./sessions";
 
 async function hashPin(pin: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -12,6 +12,47 @@ async function hashPin(pin: string): Promise<string> {
 }
 
 const MAX_FAILED_ATTEMPTS = 3;
+
+const roleValidator = v.union(
+  v.literal("super_admin"),
+  v.literal("admin"),
+  v.literal("staff"),
+);
+
+export const hasAnyUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const first = await ctx.db.query("users").first();
+    return first !== null;
+  },
+});
+
+export const bootstrapSuperAdmin = mutation({
+  args: {
+    displayName: v.string(),
+    username:    v.string(),
+    pin:         v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.query("users").first();
+    if (existing) throw new Error("Setup already complete. Please log in.");
+
+    const displayName = args.displayName.trim();
+    const username    = args.username.trim().toLowerCase();
+    if (!displayName) throw new Error("Display name is required");
+    if (!username)    throw new Error("Username is required");
+    if (!args.pin || args.pin.length < 4) throw new Error("Passcode must be at least 4 characters");
+
+    const pinHash = await hashPin(args.pin);
+    await ctx.db.insert("users", {
+      displayName,
+      username,
+      passcode: pinHash,
+      role: "super_admin",
+      failed_attempts: 0,
+    });
+  },
+});
 
 export const login = mutation({
   args: {
@@ -36,7 +77,6 @@ export const login = mutation({
 
     if (user.passcode !== pinHash) {
       const newAttempts = attempts + 1;
-      // Patch BEFORE returning so the write commits (throwing would roll it back)
       await ctx.db.patch(user._id, { failed_attempts: newAttempts });
       if (newAttempts >= MAX_FAILED_ATTEMPTS) {
         return { ok: false as const, error: "Account locked. Contact an administrator." };
@@ -53,7 +93,7 @@ export const login = mutation({
       sessionToken,
       userId:      user._id,
       displayName: user.displayName,
-      isAdmin:     user.isAdmin,
+      role:        user.role,
     };
   },
 });
@@ -69,7 +109,7 @@ export const logout = mutation({
   },
 });
 
-// ─── User Management (admin-only) ────────────────────────────────────────────
+// ─── User Management ─────────────────────────────────────────────────────────
 
 export const listGroomers = query({
   args: { sessionToken: v.string() },
@@ -87,7 +127,6 @@ export const listUsers = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args.sessionToken);
     const users = await ctx.db.query("users").collect();
-    // Never expose the hashed passcode
     return users
       .map(({ passcode: _p, ...u }) => u)
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -100,10 +139,15 @@ export const createUser = mutation({
     displayName:  v.string(),
     username:     v.string(),
     pin:          v.string(),
-    isAdmin:      v.boolean(),
+    role:         roleValidator,
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.sessionToken);
+    const caller = await requireAdmin(ctx, args.sessionToken);
+
+    // Only super_admins can create super_admin accounts
+    if (args.role === "super_admin" && caller.role !== "super_admin") {
+      throw new Error("Forbidden: only super admins can create super admin accounts");
+    }
 
     const displayName = args.displayName.trim();
     const username    = args.username.trim().toLowerCase();
@@ -122,7 +166,7 @@ export const createUser = mutation({
       displayName,
       username,
       passcode: pinHash,
-      isAdmin: args.isAdmin,
+      role: args.role,
       failed_attempts: 0,
     });
   },
@@ -135,19 +179,29 @@ export const updateUser = mutation({
     displayName:  v.optional(v.string()),
     username:     v.optional(v.string()),
     pin:          v.optional(v.string()),
-    isAdmin:      v.optional(v.boolean()),
+    role:         v.optional(roleValidator),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.sessionToken);
+    const caller = await requireAdmin(ctx, args.sessionToken);
 
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error("User not found");
+
+    // Admins cannot modify super_admin accounts — only super_admins can
+    if (target.role === "super_admin" && caller.role !== "super_admin") {
+      throw new Error("Forbidden: only super admins can edit super admin accounts");
+    }
+
+    // Admins cannot promote anyone to super_admin
+    if (args.role === "super_admin" && caller.role !== "super_admin") {
+      throw new Error("Forbidden: only super admins can assign the super admin role");
+    }
 
     const patch: {
       displayName?: string;
       username?: string;
       passcode?: string;
-      isAdmin?: boolean;
+      role?: "super_admin" | "admin" | "staff";
     } = {};
 
     if (args.displayName !== undefined) {
@@ -169,8 +223,8 @@ export const updateUser = mutation({
     if (args.pin) {
       patch.passcode = await hashPin(args.pin);
     }
-    if (args.isAdmin !== undefined) {
-      patch.isAdmin = args.isAdmin;
+    if (args.role !== undefined) {
+      patch.role = args.role;
     }
 
     await ctx.db.patch(args.userId, patch);
@@ -183,21 +237,22 @@ export const deleteUser = mutation({
     userId:       v.id("users"),
   },
   handler: async (ctx, args) => {
-    const admin = await requireAdmin(ctx, args.sessionToken);
+    const caller = await requireSuperAdmin(ctx, args.sessionToken);
 
-    if (admin._id === args.userId)
+    if (caller._id === args.userId)
       throw new Error("You cannot delete your own account");
 
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error("User not found");
 
-    if (target.isAdmin) {
-      const allAdmins = await ctx.db
+    // Prevent deleting the last super_admin
+    if (target.role === "super_admin") {
+      const allSuperAdmins = await ctx.db
         .query("users")
-        .filter((q) => q.eq(q.field("isAdmin"), true))
+        .filter((q) => q.eq(q.field("role"), "super_admin"))
         .collect();
-      if (allAdmins.length <= 1)
-        throw new Error("Cannot delete the only admin account");
+      if (allSuperAdmins.length <= 1)
+        throw new Error("Cannot delete the only super admin account");
     }
 
     // Invalidate all active sessions for the deleted user
@@ -223,12 +278,10 @@ export const resetLockout = mutation({
 
 // ─── Internal (dashboard only) ────────────────────────────────────────────────
 
-// Run once from the Convex dashboard to create the first admin.
-// Call with: { username: "admin", pin: "YOUR_PIN", displayName: "Your Name" }
 export const createInitialAdmin = internalMutation({
   args: {
-    username: v.string(),
-    pin: v.string(),
+    username:    v.string(),
+    pin:         v.string(),
     displayName: v.string(),
   },
   handler: async (ctx, args) => {
@@ -245,7 +298,7 @@ export const createInitialAdmin = internalMutation({
       username,
       displayName: args.displayName,
       passcode: pinHash,
-      isAdmin: true,
+      role: "super_admin",
     });
   },
 });

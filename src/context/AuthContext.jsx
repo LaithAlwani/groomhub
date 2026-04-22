@@ -6,14 +6,19 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const loginMutation = useMutation(api.users.login);
+  const loginMutation  = useMutation(api.users.login);
   const logoutMutation = useMutation(api.users.logout);
 
   async function login(username, pin) {
     const result = await loginMutation({ username, pin });
     if (!result.ok) throw new Error(result.error);
-    setUser(result);
-    return result;
+    const enriched = {
+      ...result,
+      isAdmin:      result.role === "admin" || result.role === "super_admin",
+      isSuperAdmin: result.role === "super_admin",
+    };
+    setUser(enriched);
+    return enriched;
   }
 
   async function logout() {

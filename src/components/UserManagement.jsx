@@ -5,11 +5,23 @@ import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 import UserFormModal from "./UserFormModal";
 
+const ROLE_BADGE = {
+  super_admin: "bg-yellow-100 text-yellow-700",
+  admin:       "bg-primary-light text-primary",
+  staff:       "bg-border text-text-secondary",
+};
+
+const ROLE_LABEL = {
+  super_admin: "Super Admin",
+  admin:       "Admin",
+  staff:       "Staff",
+};
+
 export default function UserManagement() {
   const { user } = useAuth();
-  const users = useQuery(api.users.listUsers, { sessionToken: user.sessionToken });
-  const deleteUser    = useMutation(api.users.deleteUser);
-  const resetLockout  = useMutation(api.users.resetLockout);
+  const users        = useQuery(api.users.listUsers, { sessionToken: user.sessionToken });
+  const deleteUser   = useMutation(api.users.deleteUser);
+  const resetLockout = useMutation(api.users.resetLockout);
 
   const [modalMode,       setModalMode]       = useState(null); // null | "add" | "edit"
   const [editTarget,      setEditTarget]      = useState(null);
@@ -43,6 +55,12 @@ export default function UserManagement() {
     } catch (err) {
       setActionError(err.message ?? "Failed to reset lockout");
     }
+  }
+
+  function canEdit(target) {
+    // Super admins can edit anyone; admins can only edit non-super_admin accounts
+    if (user.isSuperAdmin) return true;
+    return target.role !== "super_admin";
   }
 
   return (
@@ -95,14 +113,8 @@ export default function UserManagement() {
                     <p className="text-sm font-medium text-text-primary truncate">
                       {u.displayName}
                     </p>
-                    <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        u.isAdmin
-                          ? "bg-primary-light text-primary"
-                          : "bg-border text-text-secondary"
-                      }`}
-                    >
-                      {u.isAdmin ? "Admin" : "Staff"}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_BADGE[u.role] ?? ROLE_BADGE.staff}`}>
+                      {ROLE_LABEL[u.role] ?? u.role}
                     </span>
                     {isLocked && (
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-tag-red text-tag-redText">
@@ -124,15 +136,17 @@ export default function UserManagement() {
                     </button>
                   )}
 
-                  <button
-                    onClick={() => openEdit(u)}
-                    className="p-1.5 text-text-muted hover:text-text-primary hover:bg-ui-active rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    <Icon name="edit" className="w-4 h-4" />
-                  </button>
+                  {canEdit(u) && (
+                    <button
+                      onClick={() => openEdit(u)}
+                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-ui-active rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Icon name="edit" className="w-4 h-4" />
+                    </button>
+                  )}
 
-                  {!isSelf && (
+                  {user.isSuperAdmin && !isSelf && (
                     confirmDeleteId === u._id ? (
                       <div className="flex items-center gap-1">
                         <button

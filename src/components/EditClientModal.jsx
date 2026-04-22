@@ -21,6 +21,7 @@ export default function EditClientModal({ client, onClose }) {
   const [phones,        setPhones]        = useState(
     client.phones?.length ? client.phones : [{ number: "", type: "main" }],
   );
+  const [isBlacklisted, setIsBlacklisted] = useState(client.is_blacklisted ?? false);
   const [loading,     setLoading]     = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saveError,   setSaveError]   = useState("");
@@ -63,12 +64,13 @@ export default function EditClientModal({ client, onClose }) {
     setLoading(true);
     try {
       await updateClient({
-        sessionToken: user.sessionToken,
-        clientId:     client._id,
-        first_name:   firstName.trim(),
-        last_name:    lastName.trim(),
-        phones:       phones.filter((p) => p.number.trim()),
-        email:        emailDeclined ? undefined : email.trim(),
+        sessionToken:   user.sessionToken,
+        clientId:       client._id,
+        first_name:     firstName.trim(),
+        last_name:      lastName.trim(),
+        phones:         phones.filter((p) => p.number.trim()),
+        email:          emailDeclined ? undefined : email.trim(),
+        is_blacklisted: isBlacklisted,
       });
       onClose();
     } catch (err) {
@@ -184,6 +186,27 @@ export default function EditClientModal({ client, onClose }) {
               />
               <span className="text-xs text-text-muted">Client declined to provide an email address</span>
             </label>
+          </div>
+
+          {/* Blacklist toggle */}
+          <div className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+            isBlacklisted ? "bg-tag-red border-danger/30" : "bg-background-sidebar border-border"
+          }`}>
+            <div>
+              <p className="text-sm font-medium text-text-primary">Blacklisted</p>
+              <p className="text-xs text-text-muted mt-0.5">Flags this client across the system</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsBlacklisted((v) => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isBlacklisted ? "bg-danger" : "bg-border"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isBlacklisted ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
           </div>
 
           {saveError && (

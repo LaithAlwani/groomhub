@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { requireSession, requireAdmin } from "./sessions";
+import { requireSession, requireAdmin, requireSuperAdmin } from "./sessions";
 
 // Format a phone number to xxx-xxx-xxxx.
 // 7-digit numbers get 613 prepended (Ottawa local).
@@ -152,14 +152,15 @@ export const createClient = mutation({
 
 export const updateClient = mutation({
   args: {
-    sessionToken: v.string(),
-    clientId:     v.id("clients"),
-    first_name:   v.string(),
-    last_name:    v.optional(v.string()),
+    sessionToken:   v.string(),
+    clientId:       v.id("clients"),
+    first_name:     v.string(),
+    last_name:      v.optional(v.string()),
     phones: v.array(
       v.object({ number: v.string(), type: v.optional(v.string()) }),
     ),
-    email: v.optional(v.string()),
+    email:          v.optional(v.string()),
+    is_blacklisted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await requireSession(ctx, args.sessionToken);
@@ -175,13 +176,14 @@ export const updateClient = mutation({
     }));
 
     await ctx.db.patch(args.clientId, {
-      first_name:   firstName,
-      last_name:    lastName || undefined,
-      client_name:  clientName,
-      phones:       normalizedPhones,
-      email:        args.email?.trim() || undefined,
-      phone_search: buildPhoneSearch(normalizedPhones),
-      updated_at:   Date.now(),
+      first_name:     firstName,
+      last_name:      lastName || undefined,
+      client_name:    clientName,
+      phones:         normalizedPhones,
+      email:          args.email?.trim() || undefined,
+      phone_search:   buildPhoneSearch(normalizedPhones),
+      is_blacklisted: args.is_blacklisted ?? false,
+      updated_at:     Date.now(),
     });
   },
 });
@@ -192,7 +194,7 @@ export const deleteClient = mutation({
     clientId:     v.id("clients"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.sessionToken);
+    await requireSuperAdmin(ctx, args.sessionToken);
 
     // Delete all appointments for this client
     const appointments = await ctx.db

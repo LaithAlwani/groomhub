@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireSession, requireAdmin } from "./sessions";
+import { requireSession, requireSuperAdmin } from "./sessions";
 
 export const getPetsByContact = query({
   args: { contactId: v.id("clients") },
@@ -59,34 +59,36 @@ export const addPet = mutation({
 
 export const updatePet = mutation({
   args: {
-    sessionToken: v.string(),
-    petId:        v.id("pets"),
-    name:         v.string(),
-    breed:        v.string(),
-    species:      v.optional(v.string()),
-    gender:       v.optional(v.string()),
-    birthdate:    v.optional(v.string()),
-    weight:       v.optional(v.number()),
-    temperament:  v.optional(v.string()),
-    allergies:    v.optional(v.array(v.string())),
-    notes:        v.optional(v.string()),
-    is_active:    v.boolean(),
+    sessionToken:   v.string(),
+    petId:          v.id("pets"),
+    name:           v.string(),
+    breed:          v.string(),
+    species:        v.optional(v.string()),
+    gender:         v.optional(v.string()),
+    birthdate:      v.optional(v.string()),
+    weight:         v.optional(v.number()),
+    temperament:    v.optional(v.string()),
+    allergies:      v.optional(v.array(v.string())),
+    notes:          v.optional(v.string()),
+    is_active:      v.boolean(),
+    is_blacklisted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await requireSession(ctx, args.sessionToken);
 
     await ctx.db.patch(args.petId, {
-      name:        args.name.trim(),
-      breed:       args.breed.trim() || "unknown",
-      species:     args.species,
-      gender:      args.gender,
-      birthdate:   args.birthdate,
-      weight:      args.weight,
-      temperament: args.temperament,
-      allergies:   args.allergies,
-      notes:       args.notes?.trim() || undefined,
-      is_active:   args.is_active,
-      updated_at:  Date.now(),
+      name:           args.name.trim(),
+      breed:          args.breed.trim() || "unknown",
+      species:        args.species,
+      gender:         args.gender,
+      birthdate:      args.birthdate,
+      weight:         args.weight,
+      temperament:    args.temperament,
+      allergies:      args.allergies,
+      notes:          args.notes?.trim() || undefined,
+      is_active:      args.is_active,
+      is_blacklisted: args.is_blacklisted ?? false,
+      updated_at:     Date.now(),
     });
   },
 });
@@ -97,7 +99,7 @@ export const deletePet = mutation({
     petId:        v.id("pets"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.sessionToken);
+    await requireSuperAdmin(ctx, args.sessionToken);
 
     const pet = await ctx.db.get(args.petId);
     if (!pet) throw new Error("Pet not found");

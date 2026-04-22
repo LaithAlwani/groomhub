@@ -48,7 +48,7 @@ export function useClientDetail(contactId) {
         label: p.name || "Unnamed",
         count: appointments.filter((a) => a.pet_id === p._id).length,
       })),
-    ...(hasLegacy ? [{ id: "legacy", label: "Legacy", count: appointments.filter((a) => a.is_legacy).length }] : []),
+    ...(hasLegacy ? [{ id: "legacy", label: "Past Notes", count: appointments.filter((a) => a.is_legacy).length }] : []),
   ] : [];
 
   const visible = !appointments ? [] :

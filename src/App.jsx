@@ -6,6 +6,7 @@ import DashboardView from "./views/DashboardView";
 import ClientsView from "./views/ClientsView";
 import ClientDetailView from "./views/ClientDetailView";
 import AdminView from "./views/AdminView";
+import PricesView from "./views/PricesView";
 
 function AppShell() {
   const { user } = useAuth();
@@ -43,6 +44,10 @@ function AppShell() {
         return <ClientDetailView contactId={selectedContactId} onBack={handleBack} />;
       }
       return <ClientsView onSelectContact={handleSelectContact} />;
+    }
+
+    if (page === "prices") {
+      return <PricesView />;
     }
 
     if (page === "admin") {
