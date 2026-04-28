@@ -26,7 +26,7 @@ export default function AppointmentFormModal({ contactId, appointment, pets: all
   const updateAppointment = useMutation(api.appointments.updateAppointment);
 
   const isEdit = !!appointment;
-  const users  = useQuery(api.users.listGroomers, { sessionToken: user.sessionToken });
+  const users  = useQuery(api.users.listGroomers);
 
   const [petId,           setPetId]           = useState(appointment?.pet_id ?? "");
   const [blacklistWarning, setBlacklistWarning] = useState(null); // pet object | null
@@ -70,7 +70,6 @@ export default function AppointmentFormModal({ contactId, appointment, pets: all
     try {
       if (isEdit) {
         await updateAppointment({
-          sessionToken:  user.sessionToken,
           appointmentId: appointment._id,
           petId:         resolvedPetId,
           date:          date.trim(),
@@ -80,7 +79,6 @@ export default function AppointmentFormModal({ contactId, appointment, pets: all
         });
       } else {
         await addAppointment({
-          sessionToken: user.sessionToken,
           contactId,
           petId:        resolvedPetId,
           date:         date.trim(),

@@ -26,7 +26,7 @@ export default function ClientCard({ contact, onClick }) {
       {/* Name + email */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-text-primary truncate group-hover:text-primary transition-colors">
+          <p className="text-sm font-semibold text-text-primary truncate group-hover:text-primary transition-colors capitalize">
             {contact.client_name}
           </p>
           {contact.is_blacklisted && (

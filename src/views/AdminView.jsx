@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
-import { useAuth } from "../context/AuthContext";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { parseContactsXml } from "../utils/xml";
 import Icon from "../assets/Icon";
@@ -10,7 +9,6 @@ import StatCard from "../components/StatCard";
 import UserManagement from "../components/UserManagement";
 
 export default function AdminView() {
-  const { user } = useAuth();
   const fileRef           = useRef(null);
   const importBatch       = useMutation(api.clients.importBatch);
 
@@ -46,7 +44,7 @@ export default function AdminView() {
     try {
       for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
         const batch = contacts.slice(i, i + BATCH_SIZE);
-        await importBatch({ sessionToken: user.sessionToken, clients: batch });
+        await importBatch({ clients: batch });
         done += batch.length;
         setProgress({ done, total: contacts.length });
       }

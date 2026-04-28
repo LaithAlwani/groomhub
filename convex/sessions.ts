@@ -1,79 +1,34 @@
 import { MutationCtx, QueryCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
-
-/** Generate a cryptographically random 64-char hex token. */
-export function generateToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+export async function requireAuth(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  return identity;
 }
 
-/** Create a new session for a user and return the token. */
-export async function createSession(
-  ctx: MutationCtx,
-  userId: Parameters<MutationCtx["db"]["insert"]>[0] extends "sessions"
-    ? never
-    : import("./_generated/dataModel").Id<"users">,
-): Promise<string> {
-  const token = generateToken();
-  await ctx.db.insert("sessions", {
-    userId,
-    token,
-    expiresAt: Date.now() + SESSION_TTL_MS,
-  });
-  return token;
-}
-
-/**
- * Verify a session token. Returns the user document if valid.
- * Throws a descriptive error if the token is missing, expired, or invalid.
- * Use this at the top of every protected mutation/query.
- */
-export async function requireSession(
-  ctx: QueryCtx | MutationCtx,
-  token: string,
-) {
-  if (!token) throw new Error("Unauthorized");
-
-  const session = await ctx.db
-    .query("sessions")
-    .withIndex("by_token", (q) => q.eq("token", token))
+export async function requireShopAccess(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  const orgId = identity["org_id"] as string | undefined;
+  if (!orgId) throw new Error("No organization in token");
+  const shop = await ctx.db
+    .query("shops")
+    .withIndex("by_clerkOrgId", (q) => q.eq("clerkOrgId", orgId))
     .unique();
-
-  if (!session) throw new Error("Unauthorized");
-  if (session.expiresAt < Date.now()) throw new Error("Session expired");
-
-  const user = await ctx.db.get(session.userId);
-  if (!user) throw new Error("Unauthorized");
-
-  return user;
+  if (!shop) throw new Error("Shop not found");
+  return { identity, shop, shopId: shop._id as Id<"shops"> };
 }
 
-/**
- * Requires the caller to be an admin or super_admin.
- * Use for create/edit operations that admins are permitted to perform.
- */
-export async function requireAdmin(
-  ctx: QueryCtx | MutationCtx,
-  token: string,
-) {
-  const user = await requireSession(ctx, token);
-  if (user.role !== "admin" && user.role !== "super_admin") throw new Error("Forbidden");
-  return user;
+export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
+  const result = await requireShopAccess(ctx);
+  const role = result.identity["org_role"] as string | undefined;
+  if (role !== "org:admin" && role !== "org:super_admin") throw new Error("Forbidden");
+  return result;
 }
 
-/**
- * Requires the caller to be a super_admin.
- * Use for all delete operations and super_admin-only actions.
- */
-export async function requireSuperAdmin(
-  ctx: QueryCtx | MutationCtx,
-  token: string,
-) {
-  const user = await requireSession(ctx, token);
-  if (user.role !== "super_admin") throw new Error("Forbidden");
-  return user;
+export async function requireSuperAdmin(ctx: QueryCtx | MutationCtx) {
+  const result = await requireShopAccess(ctx);
+  if ((result.identity["org_role"] as string) !== "org:super_admin") throw new Error("Forbidden");
+  return result;
 }

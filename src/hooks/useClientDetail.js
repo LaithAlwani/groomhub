@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { useQuery, usePaginatedQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAuth } from "../context/AuthContext";
 
 export function useClientDetail(contactId) {
-  const { user } = useAuth();
 
   const contact = useQuery(api.clients.getClient, { id: contactId });
   const pets = useQuery(api.pets.getPetsByContact, { contactId });
@@ -14,28 +12,37 @@ export function useClientDetail(contactId) {
     { initialNumItems: 20 },
   );
 
-  const deletePet         = useMutation(api.pets.deletePet);
-  const deleteAppointment = useMutation(api.appointments.deleteAppointment);
-  const deleteClient      = useMutation(api.clients.deleteClient);
+  const vaccinations = useQuery(api.vaccinations.getVaccinationsByContact, { contactId });
 
-  const [confirmDeletePet,    setConfirmDeletePet]    = useState(null);
-  const [confirmDeleteAppt,   setConfirmDeleteAppt]   = useState(null);
-  const [confirmDeleteClient, setConfirmDeleteClient] = useState(false);
+  const deletePet             = useMutation(api.pets.deletePet);
+  const deleteAppointment     = useMutation(api.appointments.deleteAppointment);
+  const deleteClient          = useMutation(api.clients.deleteClient);
+  const deleteVaccinationMut  = useMutation(api.vaccinations.deleteVaccination);
+
+  const [confirmDeletePet,         setConfirmDeletePet]         = useState(null);
+  const [confirmDeleteAppt,        setConfirmDeleteAppt]        = useState(null);
+  const [confirmDeleteClient,      setConfirmDeleteClient]      = useState(false);
+  const [confirmDeleteVaccination, setConfirmDeleteVaccination] = useState(null);
   const [apptTab,              setApptTab]             = useState("all");
 
   async function handleDeletePet(petId) {
-    await deletePet({ sessionToken: user.sessionToken, petId });
+    await deletePet({ petId });
     setConfirmDeletePet(null);
   }
 
   async function handleDeleteAppt(appointmentId) {
-    await deleteAppointment({ sessionToken: user.sessionToken, appointmentId });
+    await deleteAppointment({ appointmentId });
     setConfirmDeleteAppt(null);
   }
 
   async function handleDeleteClient(onBack) {
-    await deleteClient({ sessionToken: user.sessionToken, clientId: contactId });
+    await deleteClient({ clientId: contactId });
     onBack();
+  }
+
+  async function handleDeleteVaccination(vaccinationId) {
+    await deleteVaccinationMut({ vaccinationId });
+    setConfirmDeleteVaccination(null);
   }
 
   const hasLegacy = appointments?.some((a) => a.is_legacy) ?? false;
@@ -60,6 +67,7 @@ export function useClientDetail(contactId) {
     contact,
     pets,
     appointments,
+    vaccinations,
     status,
     loadMore,
     tabs,
@@ -75,5 +83,8 @@ export function useClientDetail(contactId) {
     confirmDeleteClient,
     setConfirmDeleteClient,
     handleDeleteClient,
+    confirmDeleteVaccination,
+    setConfirmDeleteVaccination,
+    handleDeleteVaccination,
   };
 }

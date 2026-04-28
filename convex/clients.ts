@@ -2,10 +2,8 @@ import { query, mutation } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { requireSession, requireAdmin, requireSuperAdmin } from "./sessions";
+import { requireShopAccess, requireAdmin, requireSuperAdmin } from "./sessions";
 
-// Format a phone number to xxx-xxx-xxxx.
-// 7-digit numbers get 613 prepended (Ottawa local).
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (digits.length === 7)  return `613-${digits.slice(0, 3)}-${digits.slice(3)}`;
@@ -15,10 +13,6 @@ function formatPhone(raw: string): string {
   return raw.trim();
 }
 
-// Store phone_search as space-separated tokens.
-// Each phone contributes two tokens: full digits + last-4-digits suffix.
-// e.g. "613-864-2922" → "6138642922 2922"
-// Full-text search tokenises on spaces, so both are independently searchable.
 function buildPhoneSearch(phones: { number: string }[]): string {
   const tokens: string[] = [];
   for (const p of phones) {
@@ -35,20 +29,20 @@ function buildPhoneSearch(phones: { number: string }[]): string {
 export const searchByName = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
+    const { shopId } = await requireShopAccess(ctx);
     if (!args.query.trim()) return [];
 
-    // Search full name and last name separately, then deduplicate by _id
     const [byFullName, byLastName] = await Promise.all([
       ctx.db
         .query("clients")
         .withSearchIndex("search_by_name", (q) =>
-          q.search("client_name", args.query),
+          q.search("client_name", args.query).eq("shopId", shopId),
         )
         .take(25),
       ctx.db
         .query("clients")
         .withSearchIndex("search_by_last_name", (q) =>
-          q.search("last_name", args.query),
+          q.search("last_name", args.query).eq("shopId", shopId),
         )
         .take(25),
     ]);
@@ -68,25 +62,28 @@ export const searchByName = query({
 export const searchByPhone = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
+    const { shopId } = await requireShopAccess(ctx);
     if (!args.query.trim()) return [];
     const digitsOnly = args.query.replace(/\D/g, "");
     if (!digitsOnly) return [];
     const results = await ctx.db
       .query("clients")
       .withSearchIndex("search_by_phone", (q) =>
-        q.search("phone_search", digitsOnly),
+        q.search("phone_search", digitsOnly).eq("shopId", shopId),
       )
       .take(25);
-    return results.sort((a, b) =>
-      a.client_name.localeCompare(b.client_name),
-    );
+    return results.sort((a, b) => a.client_name.localeCompare(b.client_name));
   },
 });
 
 export const getTotalCount = query({
   args: {},
   handler: async (ctx) => {
-    const clients = await ctx.db.query("clients").collect();
+    const { shopId } = await requireShopAccess(ctx);
+    const clients = await ctx.db
+      .query("clients")
+      .withIndex("by_shop_and_name", (q) => q.eq("shopId", shopId))
+      .take(10000);
     return clients.length;
   },
 });
@@ -94,9 +91,10 @@ export const getTotalCount = query({
 export const listClients = query({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
+    const { shopId } = await requireShopAccess(ctx);
     return await ctx.db
       .query("clients")
-      .withIndex("by_client_name")
+      .withIndex("by_shop_and_name", (q) => q.eq("shopId", shopId))
       .order("asc")
       .paginate(args.paginationOpts);
   },
@@ -105,7 +103,10 @@ export const listClients = query({
 export const getClient = query({
   args: { id: v.id("clients") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const { shopId } = await requireShopAccess(ctx);
+    const client = await ctx.db.get(args.id);
+    if (!client || client.shopId !== shopId) return null;
+    return client;
   },
 });
 
@@ -113,20 +114,21 @@ export const getClient = query({
 
 export const createClient = mutation({
   args: {
-    sessionToken: v.string(),
-    first_name: v.string(),
-    last_name: v.optional(v.string()),
-    phones: v.array(
-      v.object({ number: v.string(), type: v.optional(v.string()) }),
-    ),
-    email: v.optional(v.string()),
+    first_name:  v.string(),
+    last_name:   v.optional(v.string()),
+    phones:      v.array(v.object({ number: v.string(), type: v.optional(v.string()) })),
+    email:       v.optional(v.string()),
+    address:     v.optional(v.string()),
+    city:        v.optional(v.string()),
+    province:    v.optional(v.string()),
+    postal_code: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireSession(ctx, args.sessionToken);
+    const { identity, shopId } = await requireShopAccess(ctx);
 
-    const firstName = args.first_name.trim();
+    const firstName  = args.first_name.trim().toLowerCase();
     if (!firstName) throw new Error("First name is required");
-    const lastName = args.last_name?.trim() ?? "";
+    const lastName   = args.last_name?.trim().toLowerCase() ?? "";
     const clientName = [firstName, lastName].filter(Boolean).join(" ");
 
     const normalizedPhones = args.phones.map((p) => ({
@@ -136,38 +138,47 @@ export const createClient = mutation({
     const now = Date.now();
 
     return await ctx.db.insert("clients", {
-      first_name: firstName,
-      last_name: lastName || undefined,
-      client_name: clientName,
-      phones: normalizedPhones,
-      email: args.email,
+      shopId,
+      first_name:   firstName,
+      last_name:    lastName || undefined,
+      client_name:  clientName,
+      phones:       normalizedPhones,
+      email:        args.email?.trim().toLowerCase() || undefined,
+      address:      args.address?.trim().toLowerCase() || undefined,
+      city:         args.city?.trim().toLowerCase() || undefined,
+      province:     args.province?.trim().toLowerCase() || undefined,
+      postal_code:  args.postal_code?.trim().toLowerCase() || undefined,
       phone_search: buildPhoneSearch(normalizedPhones),
-      pet_count: 0,
-      createdBy: user.displayName,
-      created_at: now,
-      updated_at: now,
+      pet_count:    0,
+      createdBy:    identity.name ?? identity.email ?? "Unknown",
+      created_at:   now,
+      updated_at:   now,
     });
   },
 });
 
 export const updateClient = mutation({
   args: {
-    sessionToken:   v.string(),
     clientId:       v.id("clients"),
     first_name:     v.string(),
     last_name:      v.optional(v.string()),
-    phones: v.array(
-      v.object({ number: v.string(), type: v.optional(v.string()) }),
-    ),
+    phones:         v.array(v.object({ number: v.string(), type: v.optional(v.string()) })),
     email:          v.optional(v.string()),
+    address:        v.optional(v.string()),
+    city:           v.optional(v.string()),
+    province:       v.optional(v.string()),
+    postal_code:    v.optional(v.string()),
     is_blacklisted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireSession(ctx, args.sessionToken);
+    const { shopId } = await requireShopAccess(ctx);
 
-    const firstName = args.first_name.trim();
+    const client = await ctx.db.get(args.clientId);
+    if (!client || client.shopId !== shopId) throw new Error("Not found");
+
+    const firstName  = args.first_name.trim().toLowerCase();
     if (!firstName) throw new Error("First name is required");
-    const lastName   = args.last_name?.trim() ?? "";
+    const lastName   = args.last_name?.trim().toLowerCase() ?? "";
     const clientName = [firstName, lastName].filter(Boolean).join(" ");
 
     const normalizedPhones = args.phones.map((p) => ({
@@ -180,7 +191,11 @@ export const updateClient = mutation({
       last_name:      lastName || undefined,
       client_name:    clientName,
       phones:         normalizedPhones,
-      email:          args.email?.trim() || undefined,
+      email:          args.email?.trim().toLowerCase() || undefined,
+      address:        args.address?.trim().toLowerCase() || undefined,
+      city:           args.city?.trim().toLowerCase() || undefined,
+      province:       args.province?.trim().toLowerCase() || undefined,
+      postal_code:    args.postal_code?.trim().toLowerCase() || undefined,
       phone_search:   buildPhoneSearch(normalizedPhones),
       is_blacklisted: args.is_blacklisted ?? false,
       updated_at:     Date.now(),
@@ -189,98 +204,83 @@ export const updateClient = mutation({
 });
 
 export const deleteClient = mutation({
-  args: {
-    sessionToken: v.string(),
-    clientId:     v.id("clients"),
-  },
+  args: { clientId: v.id("clients") },
   handler: async (ctx, args) => {
-    await requireSuperAdmin(ctx, args.sessionToken);
+    const { shopId } = await requireSuperAdmin(ctx);
 
-    // Delete all appointments for this client
+    const client = await ctx.db.get(args.clientId);
+    if (!client || client.shopId !== shopId) throw new Error("Not found");
+
     const appointments = await ctx.db
       .query("appointments")
       .withIndex("by_contact_and_date", (q) => q.eq("contact_id", args.clientId))
-      .collect();
-    for (const appt of appointments) {
-      await ctx.db.delete(appt._id);
-    }
+      .take(10000);
+    for (const appt of appointments) await ctx.db.delete(appt._id);
 
-    // Delete all pets for this client
     const pets = await ctx.db
       .query("pets")
       .withIndex("by_contact", (q) => q.eq("contact_id", args.clientId))
-      .collect();
-    for (const pet of pets) {
-      await ctx.db.delete(pet._id);
-    }
+      .take(1000);
+    for (const pet of pets) await ctx.db.delete(pet._id);
 
-    // Delete the client
     await ctx.db.delete(args.clientId);
   },
 });
 
-// Admin-only: import a batch of clients parsed from contacts.xml
 export const importBatch = mutation({
   args: {
-    sessionToken: v.string(),
     clients: v.array(
       v.object({
         first_name: v.string(),
         last_name:  v.optional(v.string()),
-        phones: v.array(
-          v.object({ number: v.string(), type: v.optional(v.string()) }),
-        ),
-        email: v.optional(v.string()),
-        notes: v.optional(v.string()),
-        pets: v.array(
-          v.object({
-            name:    v.string(),
-            breed:   v.string(),
-            species: v.optional(v.string()),
-          }),
-        ),
+        phones:     v.array(v.object({ number: v.string(), type: v.optional(v.string()) })),
+        email:      v.optional(v.string()),
+        notes:      v.optional(v.string()),
+        pets:       v.array(v.object({
+          name:    v.string(),
+          breed:   v.string(),
+          species: v.optional(v.string()),
+        })),
       }),
     ),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.sessionToken);
+    const { shopId } = await requireAdmin(ctx);
 
-    if (args.clients.length > 20) {
-      throw new Error("Maximum 20 clients per batch");
-    }
+    if (args.clients.length > 20) throw new Error("Maximum 20 clients per batch");
 
     const now = Date.now();
     const inserted: Id<"clients">[] = [];
 
     for (const c of args.clients) {
-      const firstName = c.first_name.trim();
+      const firstName  = c.first_name.trim();
       if (!firstName) continue;
       const lastName   = c.last_name?.trim() ?? "";
       const clientName = [firstName, lastName].filter(Boolean).join(" ");
-
-      const phoneSearch = buildPhoneSearch(c.phones);
 
       const validPets = c.pets.filter(
         (p) => p.name.trim() || (p.breed && p.breed !== "unknown"),
       );
 
       const clientId = await ctx.db.insert("clients", {
-        first_name:  firstName,
-        last_name:   lastName || undefined,
-        client_name: clientName,
-        phones: c.phones,
-        email: c.email,
-        phone_search: phoneSearch,
-        pet_count: validPets.length,
-        createdBy: "import",
-        created_at: now,
-        updated_at: now,
+        shopId,
+        first_name:   firstName,
+        last_name:    lastName || undefined,
+        client_name:  clientName,
+        phones:       c.phones,
+        email:        c.email,
+        phone_search: buildPhoneSearch(c.phones),
+        pet_count:    validPets.length,
+        createdBy:    "import",
+        created_at:   now,
+        updated_at:   now,
       });
 
       for (const pet of validPets) {
         const isActive = !pet.name.toLowerCase().includes("(dead)");
         const petName  = pet.name.replace(/\s*\(dead\)\s*/i, "").trim();
         await ctx.db.insert("pets", {
+          shopId,
           contact_id: clientId,
           name:       petName,
           breed:      pet.breed || "unknown",
@@ -293,10 +293,11 @@ export const importBatch = mutation({
 
       if (c.notes?.trim()) {
         await ctx.db.insert("appointments", {
+          shopId,
           contact_id: clientId,
-          note_text: c.notes.trim(),
-          is_legacy: true,
-          createdBy: "import",
+          note_text:  c.notes.trim(),
+          is_legacy:  true,
+          createdBy:  "import",
           created_at: now,
         });
       }

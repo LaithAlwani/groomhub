@@ -12,10 +12,11 @@ import type * as appointments from "../appointments.js";
 import type * as clients from "../clients.js";
 import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
-import type * as importAction from "../importAction.js";
 import type * as pets from "../pets.js";
 import type * as sessions from "../sessions.js";
+import type * as shops from "../shops.js";
 import type * as users from "../users.js";
+import type * as vaccinations from "../vaccinations.js";
 
 import type {
   ApiFromModules,
@@ -28,10 +29,11 @@ declare const fullApi: ApiFromModules<{
   clients: typeof clients;
   dashboard: typeof dashboard;
   http: typeof http;
-  importAction: typeof importAction;
   pets: typeof pets;
   sessions: typeof sessions;
+  shops: typeof shops;
   users: typeof users;
+  vaccinations: typeof vaccinations;
 }>;
 
 /**

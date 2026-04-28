@@ -1,95 +1,51 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
+
+const ROLES = [
+  { value: "org:member",      label: "Staff"       },
+  { value: "org:admin",       label: "Admin"       },
+  { value: "org:super_admin", label: "Super Admin" },
+];
 
 const INPUT = "w-full border rounded-xl px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 bg-background-card";
 const INPUT_OK  = `${INPUT} border-border focus:ring-primary`;
 const INPUT_ERR = `${INPUT} border-danger focus:ring-danger`;
 
-function fieldCls(err) { return err ? INPUT_ERR : INPUT_OK; }
-
-const ROLES = [
-  { value: "staff",       label: "Staff"       },
-  { value: "admin",       label: "Admin"       },
-  { value: "super_admin", label: "Super Admin" },
-];
-
-export default function UserFormModal({ mode, target, onClose }) {
+export default function UserFormModal({ mode, target, organization, onClose }) {
   const { user } = useAuth();
-  const createUser = useMutation(api.users.createUser);
-  const updateUser = useMutation(api.users.updateUser);
-
   const isEdit = mode === "edit";
 
-  const [displayName, setDisplayName] = useState(target?.displayName ?? "");
-  const [username,    setUsername]    = useState(target?.username    ?? "");
-  const [pin,         setPin]         = useState("");
-  const [role,        setRole]        = useState(target?.role ?? "staff");
-  const [loading,     setLoading]     = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [saveError,   setSaveError]   = useState("");
+  const [email,      setEmail]      = useState("");
+  const [role,       setRole]       = useState(target?.role ?? "org:member");
+  const [loading,    setLoading]    = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [saveError,  setSaveError]  = useState("");
 
   const visibleRoles = ROLES.filter(
-    (r) => r.value !== "super_admin" || user.isSuperAdmin,
+    (r) => r.value !== "org:super_admin" || user.isSuperAdmin,
   );
-
-  function clearErr(field) {
-    setFieldErrors((prev) => ({ ...prev, [field]: "" }));
-  }
-
-  function validate() {
-    const errors = {};
-
-    if (!displayName.trim())
-      errors.displayName = "Display name is required.";
-    else if (displayName.trim().length < 2)
-      errors.displayName = "Display name must be at least 2 characters.";
-
-    if (!username.trim())
-      errors.username = "Username is required.";
-    else if (username.trim().length < 2)
-      errors.username = "Username must be at least 2 characters.";
-    else if (!/^[a-z0-9_]+$/.test(username.trim()))
-      errors.username = "Username may only contain lowercase letters, numbers, and underscores.";
-
-    if (!isEdit && !pin)
-      errors.pin = "Passcode is required.";
-    else if (pin && pin.length < 4)
-      errors.pin = "Passcode must be at least 4 characters.";
-
-    return errors;
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaveError("");
-    const errors = validate();
-    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
+    setEmailError("");
+
+    if (!isEdit && !email.trim()) {
+      setEmailError("Email address is required.");
+      return;
+    }
+
     setLoading(true);
     try {
       if (isEdit) {
-        await updateUser({
-          sessionToken: user.sessionToken,
-          userId:       target._id,
-          displayName:  displayName.trim(),
-          username:     username.trim(),
-          pin:          pin || undefined,
-          role,
-        });
+        await target.update({ role });
       } else {
-        await createUser({
-          sessionToken: user.sessionToken,
-          displayName:  displayName.trim(),
-          username:     username.trim(),
-          pin,
-          role,
-        });
+        await organization.inviteMember({ emailAddress: email.trim(), role });
       }
       onClose();
     } catch (err) {
-      setSaveError(err.message ?? "Something went wrong");
+      setSaveError(err.errors?.[0]?.longMessage ?? err.message ?? "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -100,7 +56,7 @@ export default function UserFormModal({ mode, target, onClose }) {
       <div className="bg-background-card rounded-2xl shadow-soft w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-subtitle text-text-primary">
-            {isEdit ? "Edit User" : "Add User"}
+            {isEdit ? "Edit Role" : "Invite Staff Member"}
           </h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-secondary transition-colors">
             <Icon name="x" className="w-5 h-5" />
@@ -108,59 +64,35 @@ export default function UserFormModal({ mode, target, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Email Address <span className="text-danger">*</span>
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
+                placeholder="staff@example.com"
+                className={emailError ? INPUT_ERR : INPUT_OK}
+              />
+              {emailError
+                ? <p className="text-xs text-danger mt-1">{emailError}</p>
+                : <p className="text-xs text-text-muted mt-1">An invitation email will be sent to this address.</p>
+              }
+            </div>
+          )}
 
-          {/* Display Name */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Display Name <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => { setDisplayName(e.target.value); clearErr("displayName"); }}
-              placeholder="e.g. Sarah"
-              className={fieldCls(fieldErrors.displayName)}
-            />
-            {fieldErrors.displayName && <p className="text-xs text-danger mt-1">{fieldErrors.displayName}</p>}
-          </div>
+          {isEdit && (
+            <div className="px-4 py-3 bg-background-sidebar rounded-xl">
+              <p className="text-sm font-medium text-text-primary">
+                {[target?.publicUserData?.firstName, target?.publicUserData?.lastName]
+                  .filter(Boolean).join(" ") || target?.publicUserData?.identifier}
+              </p>
+              <p className="text-xs text-text-muted mt-0.5">{target?.publicUserData?.identifier}</p>
+            </div>
+          )}
 
-          {/* Username */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Username <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => { setUsername(e.target.value.toLowerCase()); clearErr("username"); }}
-              placeholder="e.g. sarah"
-              className={fieldCls(fieldErrors.username)}
-            />
-            {fieldErrors.username
-              ? <p className="text-xs text-danger mt-1">{fieldErrors.username}</p>
-              : <p className="text-xs text-text-muted mt-1">Lowercase letters, numbers, and underscores only.</p>
-            }
-          </div>
-
-          {/* PIN */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Passcode {!isEdit && <span className="text-danger">*</span>}
-              {isEdit && (
-                <span className="ml-1 text-xs text-text-muted font-normal">(leave blank to keep current)</span>
-              )}
-            </label>
-            <input
-              type="password"
-              value={pin}
-              onChange={(e) => { setPin(e.target.value); clearErr("pin"); }}
-              placeholder={isEdit ? "Enter new passcode to change" : "Min. 4 characters"}
-              className={fieldCls(fieldErrors.pin)}
-            />
-            {fieldErrors.pin && <p className="text-xs text-danger mt-1">{fieldErrors.pin}</p>}
-          </div>
-
-          {/* Role */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
               Role <span className="text-danger">*</span>
@@ -197,7 +129,7 @@ export default function UserFormModal({ mode, target, onClose }) {
             </button>
             <button type="submit" disabled={loading}
               className="flex-1 bg-primary hover:bg-primary-hover disabled:opacity-60 text-white rounded-xl py-2 text-sm font-medium transition-colors">
-              {loading ? "Saving…" : isEdit ? "Save Changes" : "Create User"}
+              {loading ? "Saving…" : isEdit ? "Save Role" : "Send Invite"}
             </button>
           </div>
         </form>

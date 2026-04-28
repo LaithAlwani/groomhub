@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 import { TEMPERAMENTS } from "../constants/pets";
 
@@ -12,7 +11,6 @@ const INPUT_ERR = `${INPUT} border-danger focus:ring-danger`;
 function fieldCls(err) { return err ? INPUT_ERR : INPUT_OK; }
 
 export default function PetFormModal({ clientId, pet, onClose }) {
-  const { user } = useAuth();
   const addPet    = useMutation(api.pets.addPet);
   const updatePet = useMutation(api.pets.updatePet);
 
@@ -20,12 +18,14 @@ export default function PetFormModal({ clientId, pet, onClose }) {
 
   const [name,        setName]        = useState(pet?.name        ?? "");
   const [breed,       setBreed]       = useState(pet?.breed       ?? "");
-  const [species,     setSpecies]     = useState(pet?.species     ?? "");
+  const [species,     setSpecies]     = useState(pet?.species     ?? "dog");
   const [gender,      setGender]      = useState(pet?.gender      ?? "");
   const [birthdate,   setBirthdate]   = useState(pet?.birthdate   ?? "");
   const [weight,      setWeight]      = useState(pet?.weight != null ? String(pet.weight) : "");
-  const [temperament, setTemperament] = useState(pet?.temperament ?? "");
-  const [allergies,   setAllergies]   = useState(pet?.allergies?.join(", ") ?? "");
+  const [temperament,         setTemperament]         = useState(pet?.temperament ?? "");
+  const [status,              setStatus]              = useState(pet?.status ?? "");
+  const [medicalConditions,   setMedicalConditions]   = useState(pet?.medical_conditions?.join(", ") ?? "");
+  const [allergies,           setAllergies]           = useState(pet?.allergies?.join(", ") ?? "");
   const [notes,       setNotes]       = useState(pet?.notes       ?? "");
   const [isActive,       setIsActive]       = useState(pet?.is_active       ?? true);
   const [isBlacklisted,  setIsBlacklisted]  = useState(pet?.is_blacklisted  ?? false);
@@ -59,15 +59,16 @@ export default function PetFormModal({ clientId, pet, onClose }) {
     setLoading(true);
 
     const payload = {
-      sessionToken: user.sessionToken,
       name:         name.trim(),
       breed:        breed.trim(),
       species,
       gender,
       birthdate,
       weight:       weight ? parseFloat(weight) : undefined,
-      temperament:  temperament || undefined,
-      allergies:    parseAllergies(allergies).length ? parseAllergies(allergies) : undefined,
+      temperament:         temperament || undefined,
+      status:              status || undefined,
+      medical_conditions:  parseAllergies(medicalConditions).length ? parseAllergies(medicalConditions) : undefined,
+      allergies:           parseAllergies(allergies).length ? parseAllergies(allergies) : undefined,
       notes:        notes.trim() || undefined,
       is_active:      isActive,
       is_blacklisted: isBlacklisted,
@@ -169,8 +170,6 @@ export default function PetFormModal({ clientId, pet, onClose }) {
                 <option value="">— Select gender —</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
-                <option value="neutered">Neutered</option>
-                <option value="spayed">Spayed</option>
               </select>
               {fieldErrors.gender && <p className="text-xs text-danger mt-1">{fieldErrors.gender}</p>}
             </div>
@@ -186,6 +185,21 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               />
               {fieldErrors.birthdate && <p className="text-xs text-danger mt-1">{fieldErrors.birthdate}</p>}
             </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className={INPUT_OK}
+            >
+              <option value="">— Select status —</option>
+              <option value="intact">Intact</option>
+              <option value="spayed">Spayed</option>
+              <option value="neutered">Neutered</option>
+            </select>
           </div>
 
           {/* Weight */}
@@ -223,6 +237,21 @@ export default function PetFormModal({ clientId, pet, onClose }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Medical Conditions */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Medical Conditions
+              <span className="ml-1 text-xs text-text-muted font-normal">(comma-separated)</span>
+            </label>
+            <input
+              type="text"
+              value={medicalConditions}
+              onChange={(e) => setMedicalConditions(e.target.value)}
+              placeholder="e.g. diabetes, arthritis, heart condition"
+              className={INPUT_OK}
+            />
           </div>
 
           {/* Allergies */}

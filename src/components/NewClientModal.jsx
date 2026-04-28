@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 
 const INPUT = "w-full border rounded-xl px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 bg-background-card";
@@ -11,7 +10,6 @@ const INPUT_ERR = `${INPUT} border-danger focus:ring-danger`;
 function fieldCls(err) { return err ? INPUT_ERR : INPUT_OK; }
 
 export default function NewClientModal({ onClose }) {
-  const { user } = useAuth();
   const createContact = useMutation(api.clients.createClient);
 
   const [firstName,     setFirstName]     = useState("");
@@ -19,6 +17,10 @@ export default function NewClientModal({ onClose }) {
   const [phone,         setPhone]         = useState("");
   const [email,         setEmail]         = useState("");
   const [emailDeclined, setEmailDeclined] = useState(false);
+  const [address,       setAddress]       = useState("");
+  const [city,          setCity]          = useState("");
+  const [province,      setProvince]      = useState("");
+  const [postalCode,    setPostalCode]    = useState("");
   const [loading,       setLoading]       = useState(false);
   const [fieldErrors,   setFieldErrors]   = useState({});
   const [saveError,     setSaveError]     = useState("");
@@ -47,11 +49,14 @@ export default function NewClientModal({ onClose }) {
     setLoading(true);
     try {
       await createContact({
-        sessionToken: user.sessionToken,
-        first_name:   firstName.trim(),
-        last_name:    lastName.trim(),
-        phones:       [{ number: phone.trim(), type: "main" }],
-        email:        emailDeclined ? undefined : email.trim(),
+        first_name:  firstName.trim(),
+        last_name:   lastName.trim(),
+        phones:      [{ number: phone.trim(), type: "main" }],
+        email:       emailDeclined ? undefined : email.trim(),
+        address:     address.trim() || undefined,
+        city:        city.trim() || undefined,
+        province:    province.trim() || undefined,
+        postal_code: postalCode.trim() || undefined,
       });
       onClose();
     } catch (err) {
@@ -63,7 +68,7 @@ export default function NewClientModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-background-card rounded-2xl shadow-soft w-full max-w-md p-6">
+      <div className="bg-background-card rounded-2xl shadow-soft w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-subtitle text-text-primary">New Client</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-secondary transition-colors">
@@ -146,6 +151,51 @@ export default function NewClientModal({ onClose }) {
               />
               <span className="text-xs text-text-muted">Client declined to provide an email address</span>
             </label>
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Home Address</label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className={INPUT_OK}
+              placeholder="123 Main St"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">City</label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className={INPUT_OK}
+                placeholder="Ottawa"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Province</label>
+              <input
+                type="text"
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+                className={INPUT_OK}
+                placeholder="ON"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">Postal Code</label>
+              <input
+                type="text"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+                className={INPUT_OK}
+                placeholder="K1A 0A1"
+              />
+            </div>
           </div>
 
           {saveError && (

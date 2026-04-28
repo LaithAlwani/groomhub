@@ -8,21 +8,24 @@ import AppointmentRow from "../components/AppointmentRow";
 import EditClientModal from "../components/EditClientModal";
 import PetFormModal from "../components/PetFormModal";
 import AppointmentFormModal from "../components/AppointmentFormModal";
+import VaccinationFormModal from "../components/VaccinationFormModal";
 
 export default function ClientDetailView({ contactId, onBack }) {
   const { user } = useAuth();
   const {
-    contact, pets, appointments, status, loadMore,
+    contact, pets, appointments, vaccinations, status, loadMore,
     tabs, visible, apptTab, setApptTab,
     confirmDeletePet, setConfirmDeletePet,
     confirmDeleteAppt, setConfirmDeleteAppt,
     handleDeletePet, handleDeleteAppt,
     confirmDeleteClient, setConfirmDeleteClient, handleDeleteClient,
+    confirmDeleteVaccination, setConfirmDeleteVaccination, handleDeleteVaccination,
   } = useClientDetail(contactId);
 
-  const [showEditClient, setShowEditClient] = useState(false);
-  const [petModal,       setPetModal]       = useState(null);
-  const [apptModal,      setApptModal]      = useState(null);
+  const [showEditClient,   setShowEditClient]   = useState(false);
+  const [petModal,         setPetModal]         = useState(null);
+  const [apptModal,        setApptModal]        = useState(null);
+  const [vaccinationModal, setVaccinationModal] = useState(null);
 
   if (contact === undefined || pets === undefined) {
     return (
@@ -54,7 +57,7 @@ export default function ClientDetailView({ contactId, onBack }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-3">
-              <h1 className="text-xl font-bold text-text-primary leading-tight">{contact.client_name}</h1>
+              <h1 className="text-xl font-bold text-text-primary leading-tight capitalize">{contact.client_name}</h1>
               {contact.is_blacklisted && (
                 <span className="shrink-0 text-xs font-medium bg-tag-red text-tag-redText px-2.5 py-1 rounded-full">
                   Blacklisted
@@ -76,6 +79,15 @@ export default function ClientDetailView({ contactId, onBack }) {
                   : <span className="text-text-muted italic">No email on file</span>
                 }
               </div>
+              {(contact.address || contact.city || contact.province || contact.postal_code) && (
+                <div className="flex items-center gap-1.5 text-sm text-text-secondary w-full">
+                  <Icon name="map-pin" className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                  <span className="capitalize">
+                    {[contact.address, contact.city, contact.province].filter(Boolean).join(", ")}
+                    {contact.postal_code && <span className="uppercase"> {contact.postal_code}</span>}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -135,6 +147,106 @@ export default function ClientDetailView({ contactId, onBack }) {
                 onCancelDelete={() => setConfirmDeletePet(null)}
               />
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Vaccinations */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
+            <Icon name="shield" className="w-4 h-4 text-text-muted" />
+            Vaccinations
+            <span className="text-xs font-medium text-text-muted bg-background-sidebar px-2 py-0.5 rounded-full">
+              {vaccinations?.length ?? 0}
+            </span>
+          </h2>
+          {(pets?.length ?? 0) > 0 && (
+            <button
+              onClick={() => setVaccinationModal({ mode: "add" })}
+              className="flex items-center gap-1.5 text-sm text-primary hover:text-primary-hover font-medium transition-colors"
+            >
+              <Icon name="plus" className="w-4 h-4" />
+              Add
+            </button>
+          )}
+        </div>
+
+        {!vaccinations || vaccinations.length === 0 ? (
+          <div className="bg-background-card border border-border rounded-2xl p-8 text-center">
+            <Icon name="shield" className="w-8 h-8 text-border mx-auto mb-2" />
+            <p className="text-sm text-text-muted">No vaccination records yet.</p>
+            {(pets?.length ?? 0) > 0 && (
+              <button
+                onClick={() => setVaccinationModal({ mode: "add" })}
+                className="mt-3 text-sm text-primary hover:text-primary-hover font-medium transition-colors"
+              >
+                Add the first vaccination
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="bg-background-card border border-border rounded-2xl overflow-hidden shadow-card">
+            <div className="flex items-center gap-3 px-5 py-2.5 bg-background-sidebar border-b border-border text-xs font-medium text-text-muted uppercase tracking-widest">
+              <div className="w-24 shrink-0">Pet</div>
+              <div className="flex-1">Vaccine</div>
+              <div className="w-24 shrink-0">Given</div>
+              <div className="w-24 shrink-0">Next Due</div>
+              <div className="flex-1 hidden md:block">Vet Clinic</div>
+              <div className="w-16 shrink-0" />
+            </div>
+            <div className="divide-y divide-border">
+              {vaccinations.map((vacc) => {
+                const petName   = pets?.find((p) => p._id === vacc.pet_id)?.name ?? "—";
+                const isOverdue = vacc.due_date && vacc.due_date < new Date().toISOString().slice(0, 10);
+                return (
+                  <div key={vacc._id} className="flex items-center gap-3 px-5 py-3 hover:bg-ui-hover transition-colors">
+                    <div className="w-24 shrink-0 text-xs text-text-secondary capitalize">{petName}</div>
+                    <div className="flex-1 text-sm font-medium text-text-primary">{vacc.vaccine_name}</div>
+                    <div className="w-24 shrink-0 text-xs text-text-secondary">{vacc.administered_date}</div>
+                    <div className={`w-24 shrink-0 text-xs font-medium ${isOverdue ? "text-warning" : "text-text-secondary"}`}>
+                      {vacc.due_date ?? <span className="text-text-muted italic">—</span>}
+                    </div>
+                    <div className="flex-1 hidden md:block text-xs text-text-muted truncate">
+                      {vacc.vet_clinic ?? "—"}
+                    </div>
+                    <div className="w-16 shrink-0 flex items-center justify-end gap-1">
+                      {confirmDeleteVaccination === vacc._id ? (
+                        <>
+                          <button
+                            onClick={() => handleDeleteVaccination(vacc._id)}
+                            className="text-xs font-medium text-white bg-danger px-1.5 py-0.5 rounded-md"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteVaccination(null)}
+                            className="text-xs text-text-muted px-1 py-0.5"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setVaccinationModal({ mode: "edit", vaccination: vacc })}
+                            className="p-1 text-text-muted hover:text-text-primary hover:bg-ui-active rounded-lg transition-colors"
+                          >
+                            <Icon name="edit" className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteVaccination(vacc._id)}
+                            className="p-1 text-text-muted hover:text-danger hover:bg-tag-red rounded-lg transition-colors"
+                          >
+                            <Icon name="trash" className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -246,7 +358,7 @@ export default function ClientDetailView({ contactId, onBack }) {
           {confirmDeleteClient ? (
             <div className="flex items-center gap-3 bg-background-card border border-danger rounded-2xl px-4 py-3 shadow-card">
               <p className="text-sm text-text-primary">
-                Permanently delete <span className="font-semibold">{contact.client_name}</span> and all their pets and appointments?
+                Permanently delete <span className="font-semibold capitalize">{contact.client_name}</span> and all their pets and appointments?
               </p>
               <button
                 onClick={() => handleDeleteClient(onBack)}
@@ -275,6 +387,14 @@ export default function ClientDetailView({ contactId, onBack }) {
 
       {showEditClient && <EditClientModal client={contact} onClose={() => setShowEditClient(false)} />}
       {petModal && <PetFormModal clientId={contactId} pet={petModal.pet ?? null} onClose={() => setPetModal(null)} />}
+      {vaccinationModal && (
+        <VaccinationFormModal
+          pets={pets ?? []}
+          contactId={contactId}
+          vaccination={vaccinationModal.vaccination ?? null}
+          onClose={() => setVaccinationModal(null)}
+        />
+      )}
       {apptModal && (
         <AppointmentFormModal
           contactId={contactId}

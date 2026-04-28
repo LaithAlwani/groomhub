@@ -75,12 +75,31 @@ export default function PetCard({ pet, user, onEdit, onDelete, confirmDelete, on
               <TemperamentBadge value={pet.temperament} />
             </div>
           )}
+          {pet.status && (
+            <div>
+              <p className="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">Status</p>
+              <p className="text-xs text-text-primary capitalize">{pet.status}</p>
+            </div>
+          )}
         </div>
 
         {pet.is_active === false && (
           <span className="text-[10px] font-medium bg-border text-text-muted px-2 py-1 rounded-full w-fit">
             Inactive
           </span>
+        )}
+
+        {pet.medical_conditions?.length > 0 && (
+          <div>
+            <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Medical Conditions</p>
+            <div className="flex flex-wrap gap-1">
+              {pet.medical_conditions.map((c) => (
+                <span key={c} className="text-[10px] font-medium bg-primary-light text-primary px-2 py-1 rounded-full capitalize">
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
         )}
 
         {pet.allergies?.length > 0 && (

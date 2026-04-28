@@ -1,9 +1,9 @@
-import { SignIn } from "@clerk/react";
+import { SignUp } from "@clerk/react";
 
-export default function LoginView() {
+export default function SignUpView() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <SignIn routing="virtual" />
+      <SignUp routing="virtual" />
     </div>
   );
 }

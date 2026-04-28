@@ -1,29 +1,28 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { useOrganization } from "@clerk/react";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../assets/Icon";
 import UserFormModal from "./UserFormModal";
 
 const ROLE_BADGE = {
-  super_admin: "bg-yellow-100 text-yellow-700",
-  admin:       "bg-primary-light text-primary",
-  staff:       "bg-border text-text-secondary",
+  "org:super_admin": "bg-yellow-100 text-yellow-700",
+  "org:admin":       "bg-primary-light text-primary",
+  "org:member":      "bg-border text-text-secondary",
 };
 
 const ROLE_LABEL = {
-  super_admin: "Super Admin",
-  admin:       "Admin",
-  staff:       "Staff",
+  "org:super_admin": "Super Admin",
+  "org:admin":       "Admin",
+  "org:member":      "Staff",
 };
 
 export default function UserManagement() {
   const { user } = useAuth();
-  const users        = useQuery(api.users.listUsers, { sessionToken: user.sessionToken });
-  const deleteUser   = useMutation(api.users.deleteUser);
-  const resetLockout = useMutation(api.users.resetLockout);
+  const { memberships, organization } = useOrganization({
+    memberships: { pageSize: 50, keepPreviousData: true },
+  });
 
-  const [modalMode,       setModalMode]       = useState(null); // null | "add" | "edit"
+  const [modalMode,       setModalMode]       = useState(null);
   const [editTarget,      setEditTarget]      = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [actionError,     setActionError]     = useState("");
@@ -33,35 +32,27 @@ export default function UserManagement() {
     setModalMode("add");
   }
 
-  function openEdit(u) {
-    setEditTarget(u);
+  function openEdit(membership) {
+    setEditTarget(membership);
     setModalMode("edit");
   }
 
-  async function handleDelete(userId) {
+  async function handleDelete(membership) {
     setActionError("");
     try {
-      await deleteUser({ sessionToken: user.sessionToken, userId });
+      await membership.destroy();
       setConfirmDeleteId(null);
     } catch (err) {
-      setActionError(err.message ?? "Failed to delete user");
+      setActionError(err.message ?? "Failed to remove user");
     }
   }
 
-  async function handleResetLockout(userId) {
-    setActionError("");
-    try {
-      await resetLockout({ sessionToken: user.sessionToken, userId });
-    } catch (err) {
-      setActionError(err.message ?? "Failed to reset lockout");
-    }
-  }
-
-  function canEdit(target) {
-    // Super admins can edit anyone; admins can only edit non-super_admin accounts
+  function canEdit(membership) {
     if (user.isSuperAdmin) return true;
-    return target.role !== "super_admin";
+    return membership.role !== "org:super_admin";
   }
+
+  const memberList = memberships?.data ?? [];
 
   return (
     <div className="bg-background-card border border-border rounded-2xl p-6 shadow-card max-w-md">
@@ -76,81 +67,63 @@ export default function UserManagement() {
           className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-xl px-4 py-2 transition-colors"
         >
           <Icon name="plus" className="w-4 h-4" />
-          Add User
+          Invite User
         </button>
       </div>
 
-      {/* Error */}
       {actionError && (
         <p className="mb-4 text-sm text-danger bg-tag-red rounded-xl px-3 py-2">
           {actionError}
         </p>
       )}
 
-      {/* User list */}
-      {users === undefined ? (
+      {memberships === undefined ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-14 bg-background-sidebar rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : users.length === 0 ? (
-        <p className="text-sm text-text-muted text-center py-6">No users found.</p>
+      ) : memberList.length === 0 ? (
+        <p className="text-sm text-text-muted text-center py-6">No staff found.</p>
       ) : (
         <div className="space-y-2">
-          {users.map((u) => {
-            const isLocked = (u.failed_attempts ?? 0) >= 3;
-            const isSelf   = u._id === user.userId;
+          {memberList.map((m) => {
+            const isSelf   = m.publicUserData?.userId === user.userId;
+            const name     = [m.publicUserData?.firstName, m.publicUserData?.lastName]
+              .filter(Boolean).join(" ") || m.publicUserData?.identifier || "Unknown";
+            const email    = m.publicUserData?.identifier ?? "";
 
             return (
               <div
-                key={u._id}
+                key={m.id}
                 className="flex items-center justify-between gap-3 px-4 py-3 bg-background-sidebar rounded-xl"
               >
-                {/* Identity */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      {u.displayName}
-                    </p>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_BADGE[u.role] ?? ROLE_BADGE.staff}`}>
-                      {ROLE_LABEL[u.role] ?? u.role}
+                    <p className="text-sm font-medium text-text-primary truncate">{name}</p>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_BADGE[m.role] ?? ROLE_BADGE["org:member"]}`}>
+                      {ROLE_LABEL[m.role] ?? m.role}
                     </span>
-                    {isLocked && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-tag-red text-tag-redText">
-                        Locked
-                      </span>
-                    )}
                   </div>
-                  <p className="text-xs text-text-muted mt-0.5">@{u.username}</p>
+                  <p className="text-xs text-text-muted mt-0.5">{email}</p>
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
-                  {isLocked && (
+                  {canEdit(m) && (
                     <button
-                      onClick={() => handleResetLockout(u._id)}
-                      className="text-xs text-primary hover:text-primary-hover font-medium px-2 py-1 rounded-lg hover:bg-primary-light transition-colors"
-                    >
-                      Unlock
-                    </button>
-                  )}
-
-                  {canEdit(u) && (
-                    <button
-                      onClick={() => openEdit(u)}
+                      onClick={() => openEdit(m)}
                       className="p-1.5 text-text-muted hover:text-text-primary hover:bg-ui-active rounded-lg transition-colors"
-                      title="Edit"
+                      title="Edit role"
                     >
                       <Icon name="edit" className="w-4 h-4" />
                     </button>
                   )}
 
                   {user.isSuperAdmin && !isSelf && (
-                    confirmDeleteId === u._id ? (
+                    confirmDeleteId === m.id ? (
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => handleDelete(u._id)}
+                          onClick={() => handleDelete(m)}
                           className="text-xs font-medium text-white bg-danger hover:bg-danger/90 px-2 py-1 rounded-lg transition-colors"
                         >
                           Confirm
@@ -164,9 +137,9 @@ export default function UserManagement() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => { setConfirmDeleteId(u._id); setActionError(""); }}
+                        onClick={() => { setConfirmDeleteId(m.id); setActionError(""); }}
                         className="p-1.5 text-text-muted hover:text-danger hover:bg-tag-red rounded-lg transition-colors"
-                        title="Delete"
+                        title="Remove from organization"
                       >
                         <Icon name="trash" className="w-4 h-4" />
                       </button>
@@ -183,6 +156,7 @@ export default function UserManagement() {
         <UserFormModal
           mode={modalMode}
           target={editTarget}
+          organization={organization}
           onClose={() => setModalMode(null)}
         />
       )}
