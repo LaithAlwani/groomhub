@@ -1,10 +1,13 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireSession, requireSuperAdmin } from "./sessions";
+import { requireShopAccess, requireSuperAdmin } from "./sessions";
 
 export const getPetsByContact = query({
   args: { contactId: v.id("clients") },
   handler: async (ctx, args) => {
+    const { shopId } = await requireShopAccess(ctx);
+    const client = await ctx.db.get(args.contactId);
+    if (!client || client.shopId !== shopId) return [];
     return await ctx.db
       .query("pets")
       .withIndex("by_contact", (q) => q.eq("contact_id", args.contactId))
@@ -14,7 +17,6 @@ export const getPetsByContact = query({
 
 export const addPet = mutation({
   args: {
-    sessionToken: v.string(),
     clientId:     v.id("clients"),
     name:         v.string(),
     breed:        v.string(),
@@ -23,43 +25,45 @@ export const addPet = mutation({
     birthdate:    v.optional(v.string()),
     weight:       v.optional(v.number()),
     temperament:  v.optional(v.string()),
-    allergies:    v.optional(v.array(v.string())),
-    notes:        v.optional(v.string()),
-    is_active:    v.optional(v.boolean()),
+    allergies:      v.optional(v.array(v.string())),
+    notes:          v.optional(v.string()),
+    is_active:      v.optional(v.boolean()),
+    is_blacklisted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireSession(ctx, args.sessionToken);
-    const now = Date.now();
+    const { shopId } = await requireShopAccess(ctx);
 
+    const client = await ctx.db.get(args.clientId);
+    if (!client || client.shopId !== shopId) throw new Error("Client not found");
+
+    const now = Date.now();
     await ctx.db.insert("pets", {
-      contact_id:  args.clientId,
-      name:        args.name.trim(),
-      breed:       args.breed.trim() || "unknown",
-      species:     args.species,
-      gender:      args.gender,
-      birthdate:   args.birthdate,
-      weight:      args.weight,
-      temperament: args.temperament,
-      allergies:   args.allergies,
-      notes:       args.notes?.trim() || undefined,
-      is_active:   args.is_active ?? true,
+      shopId,
+      contact_id:     args.clientId,
+      name:           args.name.trim(),
+      breed:          args.breed.trim() || "unknown",
+      species:        args.species,
+      gender:         args.gender,
+      birthdate:      args.birthdate,
+      weight:         args.weight,
+      temperament:    args.temperament,
+      allergies:      args.allergies,
+      notes:          args.notes?.trim() || undefined,
+      is_active:      args.is_active ?? true,
+      is_blacklisted: args.is_blacklisted ?? false,
       created_at:  now,
       updated_at:  now,
     });
 
-    const client = await ctx.db.get(args.clientId);
-    if (client) {
-      await ctx.db.patch(args.clientId, {
-        pet_count:  (client.pet_count ?? 0) + 1,
-        updated_at: now,
-      });
-    }
+    await ctx.db.patch(args.clientId, {
+      pet_count:  (client.pet_count ?? 0) + 1,
+      updated_at: now,
+    });
   },
 });
 
 export const updatePet = mutation({
   args: {
-    sessionToken:   v.string(),
     petId:          v.id("pets"),
     name:           v.string(),
     breed:          v.string(),
@@ -74,7 +78,10 @@ export const updatePet = mutation({
     is_blacklisted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireSession(ctx, args.sessionToken);
+    const { shopId } = await requireShopAccess(ctx);
+
+    const pet = await ctx.db.get(args.petId);
+    if (!pet || pet.shopId !== shopId) throw new Error("Pet not found");
 
     await ctx.db.patch(args.petId, {
       name:           args.name.trim(),
@@ -94,15 +101,12 @@ export const updatePet = mutation({
 });
 
 export const deletePet = mutation({
-  args: {
-    sessionToken: v.string(),
-    petId:        v.id("pets"),
-  },
+  args: { petId: v.id("pets") },
   handler: async (ctx, args) => {
-    await requireSuperAdmin(ctx, args.sessionToken);
+    const { shopId } = await requireSuperAdmin(ctx);
 
     const pet = await ctx.db.get(args.petId);
-    if (!pet) throw new Error("Pet not found");
+    if (!pet || pet.shopId !== shopId) throw new Error("Pet not found");
 
     await ctx.db.delete(args.petId);
 
