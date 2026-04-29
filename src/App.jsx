@@ -22,19 +22,23 @@ class ConvexErrorBoundary extends Component {
 }
 
 function AppShell() {
-  const { user, needsShop, needsShopSelection } = useAuth();
+  const { user, needsShopSelection } = useAuth();
   const [page,              setPage]              = useState("dashboard");
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [showSignUp,        setShowSignUp]        = useState(false);
+  const [showCreate,        setShowCreate]        = useState(false);
 
   useEffect(() => {
     setPage("dashboard");
     setSelectedContactId(null);
     setShowSignUp(false);
+    setShowCreate(false);
   }, [user?.userId, user?.shopId]);
 
-  if (needsShopSelection) return <SelectShopView />;
-  if (needsShop)          return <CreateShopView />;
+  if (needsShopSelection) {
+    if (showCreate) return <CreateShopView onBack={() => setShowCreate(false)} />;
+    return <SelectShopView onCreateShop={() => setShowCreate(true)} />;
+  }
   if (!user) {
     if (showSignUp) return <SignUpView />;
     return <LoginView />;

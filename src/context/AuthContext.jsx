@@ -5,6 +5,25 @@ import { api } from "../../convex/_generated/api";
 
 const AuthContext = createContext(null);
 
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+          <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
+          <line x1="20" y1="4" x2="8.12" y2="15.88" />
+          <line x1="14.47" y1="14.48" x2="20" y2="20" />
+          <line x1="8.12" y1="8.12" x2="12" y2="12" />
+        </svg>
+      </div>
+      <svg className="w-8 h-8 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+      </svg>
+    </div>
+  );
+}
+
 export function AuthProvider({ children }) {
   const { user: clerkUser, isSignedIn, isLoaded: userLoaded } = useUser();
   const { membership, organization, isLoaded: orgLoaded } = useOrganization();
@@ -42,17 +61,7 @@ export function AuthProvider({ children }) {
         }
       : null;
 
-  // Auto-activate the only org when there's exactly one and none is currently active.
-  // Avoids showing the shop picker for single-shop users.
-  useEffect(() => {
-    if (!isSignedIn || !orgListLoaded || orgRole) return;
-    const memberships = userMemberships?.data ?? [];
-    if (memberships.length !== 1) return;
-    setActiveOrg({ organization: memberships[0].organization.id }).catch(() => {});
-  }, [isSignedIn, orgListLoaded, orgRole, userMemberships?.data?.length, setActiveOrg]);
-
   // Auto-create the Convex shop record when a user has an org but no shop yet.
-  // Forces a fresh Clerk token before each attempt so Convex sees org_id in the JWT.
   useEffect(() => {
     if (!orgRole || shop !== null || !organization?.id || !organization?.name || !session) return;
 
@@ -98,21 +107,15 @@ export function AuthProvider({ children }) {
     await signOut();
   }
 
-  // isLoaded goes true before userMemberships.data is populated — wait for the
-  // paginated fetch to finish too, otherwise membershipCount is 0 for one frame
-  // and needsShop flashes CreateShopView before needsShopSelection can take over.
   const membershipsReady = orgListLoaded && userMemberships?.isLoading === false;
 
-  // Hold rendering until Clerk + org list are fully resolved
-  if (!userLoaded || (isSignedIn && (!orgLoaded || !membershipsReady))) return null;
-  if (orgRole && !shopLoaded) return null;
+  if (!userLoaded || (isSignedIn && (!orgLoaded || !membershipsReady))) return <LoadingScreen />;
+  if (orgRole && !shopLoaded) return <LoadingScreen />;
 
-  const membershipCount    = userMemberships?.data?.length ?? 0;
-  const needsShopSelection = isSignedIn && membershipsReady && !orgRole && membershipCount > 1;
-  const needsShop          = isSignedIn && orgLoaded && membershipsReady && !orgRole && membershipCount === 0;
+  const needsShopSelection = isSignedIn && membershipsReady && !orgRole;
 
   return (
-    <AuthContext.Provider value={{ user, logout, needsShop, needsShopSelection, shopCreateError, setPendingLogoStorageId }}>
+    <AuthContext.Provider value={{ user, logout, needsShopSelection, shopCreateError, setPendingLogoStorageId }}>
       {children}
     </AuthContext.Provider>
   );

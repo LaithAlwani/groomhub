@@ -14,14 +14,14 @@ const ROLE_BADGE = {
   "org:member":      "bg-border text-text-secondary",
 };
 
-export default function SelectShopView() {
+export default function SelectShopView({ onCreateShop }) {
   const { userMemberships, setActive, isLoaded } = useOrganizationList({
     userMemberships: { pageSize: 50 },
   });
   const { signOut } = useClerk();
   const [activatingId, setActivatingId] = useState(null);
+  const [settling,     setSettling]     = useState(false);
 
-  // isLoaded goes true before userMemberships.data is populated
   const membershipsReady = isLoaded && userMemberships?.isLoading === false;
   const memberships      = userMemberships?.data ?? [];
 
@@ -30,10 +30,24 @@ export default function SelectShopView() {
     setActivatingId(orgId);
     try {
       await setActive({ organization: orgId });
-      // AuthContext re-evaluates: needsShopSelection drops to false, main app renders
+      setSettling(true);
     } catch {
       setActivatingId(null);
     }
+  }
+
+  if (settling) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+          <Icon name="scissors" className="w-5 h-5 text-white" />
+        </div>
+        <svg className="w-8 h-8 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+        </svg>
+      </div>
+    );
   }
 
   return (
@@ -45,7 +59,13 @@ export default function SelectShopView() {
             <Icon name="scissors" className="w-5 h-5 text-white" />
           </div>
           <h1 className="text-xl font-bold text-text-primary">GroomHub</h1>
-          <p className="text-sm text-text-muted mt-1">Select your shop to continue</p>
+          <p className="text-sm text-text-muted mt-1">
+            {!membershipsReady
+              ? "Loading…"
+              : memberships.length === 0
+              ? "Get started"
+              : "Select a shop to continue"}
+          </p>
         </div>
 
         {!membershipsReady ? (
@@ -102,6 +122,24 @@ export default function SelectShopView() {
                 </button>
               );
             })}
+
+            {/* Create new shop */}
+            <button
+              onClick={onCreateShop}
+              disabled={!!activatingId}
+              className="w-full bg-background-card border border-dashed border-border rounded-2xl p-4 text-left hover:border-primary/50 hover:bg-ui-hover transition-all disabled:opacity-60 group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-background-sidebar flex items-center justify-center shrink-0 group-hover:bg-primary-light transition-colors">
+                  <Icon name="plus" className="w-5 h-5 text-text-muted group-hover:text-primary transition-colors" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-text-primary">Create a new shop</p>
+                  <p className="text-xs text-text-muted mt-0.5">Set up a new grooming shop on GroomHub</p>
+                </div>
+                <Icon name="chevron-left" className="w-5 h-5 text-text-muted rotate-180 shrink-0" />
+              </div>
+            </button>
           </div>
         )}
 
