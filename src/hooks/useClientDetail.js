@@ -7,7 +7,7 @@ export function useClientDetail(contactId) {
   const contact = useQuery(api.clients.getClient, { id: contactId });
   const pets = useQuery(api.pets.getPetsByContact, { contactId });
   const { results: appointments, status, loadMore } = usePaginatedQuery(
-    api.appointments.getAppointmentsByContact,
+    api.clientAppointments.getAppointmentsByContact,
     { contactId },
     { initialNumItems: 20 },
   );

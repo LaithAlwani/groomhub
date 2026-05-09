@@ -11,6 +11,7 @@ import ClientsView from "./views/ClientsView";
 import ClientDetailView from "./views/ClientDetailView";
 import AdminView from "./views/AdminView";
 import PricesView from "./views/PricesView";
+import ScheduleView from "./views/ScheduleView";
 
 class ConvexErrorBoundary extends Component {
   state = { crashed: false };
@@ -62,7 +63,8 @@ function AppShell() {
       }
       return <ClientsView onSelectContact={handleSelectContact} />;
     }
-    if (page === "prices") return <PricesView />;
+    if (page === "prices")    return <PricesView />;
+    if (page === "schedule")  return <ScheduleView />;
     if (page === "admin")  return user.isAdmin ? <AdminView /> : null;
     return (
       <div className="flex items-center justify-center h-64 text-text-muted">

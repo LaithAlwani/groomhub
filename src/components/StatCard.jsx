@@ -1,11 +1,20 @@
 import Icon from "../assets/Icon";
 
-export default function StatCard({ icon, label, value, adminOnly, isAdmin, comingSoon }) {
+export default function StatCard({ icon, label, value, adminOnly, isAdmin, comingSoon, onClick, active }) {
+  const isClickable = !!onClick && !comingSoon;
   return (
-    <div className="bg-background-card border border-border rounded-2xl p-5 shadow-card">
+    <div
+      onClick={isClickable ? onClick : undefined}
+      className={`bg-background-card border rounded-2xl p-5 shadow-card transition-all ${
+        isClickable ? "cursor-pointer hover:border-primary/50 hover:shadow-soft" : ""
+      } ${active ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
+    >
       <div className="flex items-center gap-2 text-text-muted mb-3">
         <Icon name={icon} className="w-4 h-4" />
         <span className="text-xs font-medium uppercase tracking-widest">{label}</span>
+        {isClickable && (
+          <Icon name="chevron-left" className={`w-3 h-3 ml-auto transition-transform ${active ? "rotate-90" : "-rotate-90"}`} />
+        )}
       </div>
       {comingSoon ? (
         <>
@@ -15,8 +24,8 @@ export default function StatCard({ icon, label, value, adminOnly, isAdmin, comin
       ) : adminOnly && !isAdmin ? (
         <p className="text-2xl font-bold text-text-muted">—</p>
       ) : (
-        <p className="text-2xl font-bold text-text-primary">
-          {value ?? <span className="text-text-muted">—</span>}
+        <p className={`text-2xl font-bold ${active ? "text-primary" : "text-text-primary"}`}>
+          {value ?? <span className="text-text-muted animate-pulse">…</span>}
         </p>
       )}
     </div>

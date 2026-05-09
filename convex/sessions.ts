@@ -32,3 +32,32 @@ export async function requireSuperAdmin(ctx: QueryCtx | MutationCtx) {
   if ((result.identity["org_role"] as string) !== "org:super_admin") throw new Error("Forbidden");
   return result;
 }
+
+export function isAdminRole(role: string | undefined) {
+  return role === "org:admin" || role === "org:super_admin";
+}
+
+// True if the appointment is owned by the caller (created by them OR assigned to them as groomer).
+// Non-admin staff are restricted to their own appointments by this rule.
+export function canSeeAppt(
+  a: { createdById?: string; groomerId?: string },
+  tokenIdentifier: string,
+) {
+  return a.createdById === tokenIdentifier || a.groomerId === tokenIdentifier;
+}
+
+// Loads an appointment, verifies tenant, and enforces the role-based access rule.
+// Use in every appointment mutation so the rule cannot be forgotten.
+export async function requireApptAccess(
+  ctx: QueryCtx | MutationCtx,
+  apptId: Id<"appointments">,
+) {
+  const { identity, shop, shopId } = await requireShopAccess(ctx);
+  const appt = await ctx.db.get(apptId);
+  if (!appt || appt.shopId !== shopId) throw new Error("Appointment not found");
+  const isAdmin = isAdminRole(identity["org_role"] as string | undefined);
+  if (!isAdmin && !canSeeAppt(appt, identity.tokenIdentifier)) {
+    throw new Error("Forbidden");
+  }
+  return { identity, shop, shopId, appt, isAdmin };
+}

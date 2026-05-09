@@ -8,9 +8,12 @@
  * @module
  */
 
+import type * as appointmentAdmin from "../appointmentAdmin.js";
 import type * as appointments from "../appointments.js";
+import type * as clientAppointments from "../clientAppointments.js";
 import type * as clients from "../clients.js";
 import type * as dashboard from "../dashboard.js";
+import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as pets from "../pets.js";
 import type * as sessions from "../sessions.js";
@@ -25,9 +28,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  appointmentAdmin: typeof appointmentAdmin;
   appointments: typeof appointments;
+  clientAppointments: typeof clientAppointments;
   clients: typeof clients;
   dashboard: typeof dashboard;
+  email: typeof email;
   http: typeof http;
   pets: typeof pets;
   sessions: typeof sessions;

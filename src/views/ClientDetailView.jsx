@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
 import { useClientDetail } from "../hooks/useClientDetail";
 import { phoneIcon } from "../utils/phone";
@@ -21,6 +23,10 @@ export default function ClientDetailView({ contactId, onBack }) {
     confirmDeleteClient, setConfirmDeleteClient, handleDeleteClient,
     confirmDeleteVaccination, setConfirmDeleteVaccination, handleDeleteVaccination,
   } = useClientDetail(contactId);
+
+  const approveAppt = useMutation(api.appointments.approveAppointment);
+  const rejectAppt  = useMutation(api.appointments.rejectAppointment);
+  const cancelAppt  = useMutation(api.appointments.cancelAppointment);
 
   const [showEditClient,   setShowEditClient]   = useState(false);
   const [petModal,         setPetModal]         = useState(null);
@@ -45,10 +51,19 @@ export default function ClientDetailView({ contactId, onBack }) {
 
   return (
     <div className="max-w-5xl space-y-6">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors">
-        <Icon name="chevron-left" className="w-4 h-4" />
-        Back to Clients
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors">
+          <Icon name="chevron-left" className="w-4 h-4" />
+          Back to Clients
+        </button>
+        <button
+          onClick={() => setApptModal({ mode: "add" })}
+          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-xl px-4 py-2 transition-colors"
+        >
+          <Icon name="plus" className="w-4 h-4" />
+          Book Appointment
+        </button>
+      </div>
 
       {/* Client header */}
       <div className="bg-background-card border border-border rounded-2xl p-6 shadow-card">
@@ -356,6 +371,9 @@ export default function ClientDetailView({ contactId, onBack }) {
                   user={user}
                   onEdit={() => setApptModal({ mode: "edit", appt })}
                   onDelete={() => setConfirmDeleteAppt(appt._id)}
+                  onApprove={() => approveAppt({ appointmentId: appt._id })}
+                  onReject={() => rejectAppt({ appointmentId: appt._id })}
+                  onCancel={() => cancelAppt({ appointmentId: appt._id })}
                   confirmDelete={confirmDeleteAppt === appt._id}
                   onConfirmDelete={() => handleDeleteAppt(appt._id)}
                   onCancelDelete={() => setConfirmDeleteAppt(null)}
@@ -423,7 +441,6 @@ export default function ClientDetailView({ contactId, onBack }) {
         <AppointmentFormModal
           contactId={contactId}
           appointment={apptModal.appt ?? null}
-          pets={pets ?? []}
           onClose={() => setApptModal(null)}
         />
       )}

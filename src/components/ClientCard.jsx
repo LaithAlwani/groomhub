@@ -1,7 +1,7 @@
 import Icon from "../assets/Icon";
 import { phoneIcon } from "../utils/phone";
 
-export default function ClientCard({ contact, onClick }) {
+export default function ClientCard({ contact, onClick, onBook }) {
   const primaryPhone = contact.phones?.[0] ?? null;
   const petCount     = contact.pet_count ?? 0;
   const lastDate     = contact.last_visit_date ?? null;
@@ -13,10 +13,18 @@ export default function ClientCard({ contact, onClick }) {
     .join("")
     .toUpperCase();
 
+  function handleBook(e) {
+    e.stopPropagation();
+    onBook?.(contact);
+  }
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onClick?.(contact)}
-      className="w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-ui-hover transition-colors group"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(contact); } }}
+      className="w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-ui-hover transition-colors group cursor-pointer focus:outline-none focus:bg-ui-hover"
     >
       {/* Avatar */}
       <div className="w-9 h-9 rounded-xl bg-primary-light text-primary text-sm font-bold flex items-center justify-center shrink-0">
@@ -70,8 +78,21 @@ export default function ClientCard({ contact, onClick }) {
         }
       </div>
 
+      {/* Book quick-action */}
+      {onBook && (
+        <button
+          type="button"
+          onClick={handleBook}
+          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:bg-primary-light rounded-lg px-2.5 py-1.5 transition-colors shrink-0"
+          title="Book appointment"
+        >
+          <Icon name="plus" className="w-3.5 h-3.5" />
+          Book
+        </button>
+      )}
+
       {/* Arrow */}
       <Icon name="chevron-left" className="w-4 h-4 text-text-muted rotate-180 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-    </button>
+    </div>
   );
 }

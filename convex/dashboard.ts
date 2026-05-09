@@ -1,6 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireShopAccess } from "./sessions";
+import { requireShopAccess, isAdminRole, canSeeAppt } from "./sessions";
 
 function weekRange(today: string) {
   const now  = new Date(today);
@@ -16,7 +16,8 @@ function weekRange(today: string) {
 export const getStats = query({
   args: { today: v.string() },
   handler: async (ctx, args) => {
-    const { shopId } = await requireShopAccess(ctx);
+    const { identity, shopId } = await requireShopAccess(ctx);
+    const isAdmin = isAdminRole(identity["org_role"] as string | undefined);
     const today = args.today;
     const week  = weekRange(today);
 
@@ -34,13 +35,32 @@ export const getStats = query({
       )
       .take(1000);
 
-    const weekRevenue = weekAppts.reduce((sum, a) => sum + (a.price ?? 0), 0);
+    const weekFiltered = isAdmin
+      ? weekAppts
+      : weekAppts.filter((a) => canSeeAppt(a, identity.tokenIdentifier));
+    const weekRevenue = weekFiltered.reduce((sum, a) => sum + (a.price ?? 0), 0);
+
+    const todayFiltered = todayAppts.filter(
+      (a) => a.status !== "cancelled" && (isAdmin || canSeeAppt(a, identity.tokenIdentifier)),
+    );
+
+    const pendingAppts = await ctx.db
+      .query("appointments")
+      .withIndex("by_shop_and_status", (q) =>
+        q.eq("shopId", shopId).eq("status", "pending"),
+      )
+      .take(500);
+
+    const pendingFiltered = isAdmin
+      ? pendingAppts
+      : pendingAppts.filter((a) => canSeeAppt(a, identity.tokenIdentifier));
 
     return {
-      todayAppointments: todayAppts.length,
-      weekAppointments:  weekAppts.length,
+      todayAppointments: todayFiltered.length,
+      weekAppointments:  weekFiltered.length,
       weekRevenue,
-      todayClients:      todayAppts.length,
+      todayClients:      todayFiltered.length,
+      pendingApprovals:  pendingFiltered.length,
     };
   },
 });
@@ -48,13 +68,19 @@ export const getStats = query({
 export const getRecentActivity = query({
   args: {},
   handler: async (ctx) => {
-    const { shopId } = await requireShopAccess(ctx);
+    const { identity, shopId } = await requireShopAccess(ctx);
+    const isAdmin = isAdminRole(identity["org_role"] as string | undefined);
 
-    const appointments = await ctx.db
+    const sample = await ctx.db
       .query("appointments")
       .withIndex("by_shop_and_date", (q) => q.eq("shopId", shopId))
       .order("desc")
-      .take(10);
+      .take(isAdmin ? 10 : 50);
+
+    const appointments = (isAdmin
+      ? sample
+      : sample.filter((a) => canSeeAppt(a, identity.tokenIdentifier))
+    ).slice(0, 10);
 
     return await Promise.all(
       appointments.map(async (appt) => {
@@ -65,6 +91,7 @@ export const getRecentActivity = query({
           date:       appt.date,
           groomer:    appt.groomer,
           price:      appt.price,
+          status:     appt.status ?? "completed",
           clientName: client?.client_name ?? "Unknown",
           petName:    pet?.name  ?? null,
           petBreed:   pet?.breed ?? null,

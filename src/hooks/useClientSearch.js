@@ -10,7 +10,7 @@ export function useClientSearch(searchQuery) {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery ?? ""), 300);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery ?? ""), 500);
     return () => clearTimeout(debounceRef.current);
   }, [searchQuery]);
 
@@ -37,9 +37,14 @@ export function useClientSearch(searchQuery) {
     ? (phoneMode ? phoneResults : nameResults) ?? []
     : pagedContacts ?? [];
 
-  const isLoading = isSearching
-    ? nameResults === undefined && phoneResults === undefined
-    : status === "LoadingFirstPage";
+  // Treat the debounce window as loading too, so the list switches to the skeleton
+  // the moment the user starts typing rather than waiting 500ms.
+  const isPending = (searchQuery ?? "").trim() !== debouncedQuery.trim();
+  const isLoading = isPending || (
+    isSearching
+      ? nameResults === undefined && phoneResults === undefined
+      : status === "LoadingFirstPage"
+  );
 
   const canLoadMore = !isSearching && status === "CanLoadMore";
 

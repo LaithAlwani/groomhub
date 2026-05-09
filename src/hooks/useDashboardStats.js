@@ -10,8 +10,10 @@ function localDateString() {
 }
 
 export function useDashboardStats() {
-  const today    = localDateString();
-  const stats    = useQuery(api.dashboard.getStats,          { today });
-  const activity = useQuery(api.dashboard.getRecentActivity);
-  return { stats, activity };
+  const today      = localDateString();
+  const stats      = useQuery(api.dashboard.getStats,          { today });
+  const activity   = useQuery(api.dashboard.getRecentActivity);
+  const pending    = useQuery(api.appointments.getPendingApprovals);
+  const todayAppts = useQuery(api.appointments.getTodayAppointments, { today });
+  return { stats, activity, pending, todayAppts };
 }

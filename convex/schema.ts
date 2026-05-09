@@ -59,24 +59,36 @@ export default defineSchema({
   }).index("by_contact", ["contact_id"]),
 
   appointments: defineTable({
-    shopId:      v.id("shops"),
-    contact_id:  v.id("clients"),
-    pet_id:      v.optional(v.id("pets")),
-    date:        v.optional(v.string()),
-    price:       v.optional(v.number()),
-    groomer:     v.optional(v.string()),
-    note_text:   v.string(),
-    is_legacy:   v.optional(v.boolean()),
-    createdBy:   v.optional(v.string()),
-    createdById: v.optional(v.string()),
-    created_at:  v.optional(v.number()),
-    editedBy:    v.optional(v.string()),
-    editedById:  v.optional(v.string()),
-    edited_at:   v.optional(v.number()),
+    shopId:       v.id("shops"),
+    contact_id:   v.id("clients"),
+    pet_id:       v.optional(v.id("pets")),
+    date:         v.optional(v.string()),
+    time:         v.optional(v.string()),
+    duration:     v.optional(v.number()),
+    service_type: v.optional(v.string()),
+    status:       v.optional(v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("completed"),
+      v.literal("cancelled"),
+    )),
+    price:        v.optional(v.number()),
+    groomer:      v.optional(v.string()),
+    groomerId:    v.optional(v.string()),
+    note_text:    v.optional(v.string()),
+    is_legacy:    v.optional(v.boolean()),
+    createdBy:    v.optional(v.string()),
+    createdById:  v.optional(v.string()),
+    created_at:   v.optional(v.number()),
+    editedBy:     v.optional(v.string()),
+    editedById:   v.optional(v.string()),
+    edited_at:    v.optional(v.number()),
   })
     .index("by_contact_and_date", ["contact_id", "date"])
     .index("by_shop_and_date",    ["shopId", "date"])
-    .index("by_pet",              ["pet_id"]),
+    .index("by_shop_and_status",  ["shopId", "status"])
+    .index("by_pet",              ["pet_id"])
+    .index("by_shop_and_groomer", ["shopId", "groomerId"]),
 
   vaccinations: defineTable({
     shopId:            v.id("shops"),
@@ -99,6 +111,7 @@ export default defineSchema({
     shopId:          v.id("shops"),
     tokenIdentifier: v.string(),
     displayName:     v.string(),
+    color:           v.optional(v.string()), // key into GROOMER_COLORS palette
   })
     .index("by_shop",           ["shopId"])
     .index("by_shop_and_token", ["shopId", "tokenIdentifier"]),

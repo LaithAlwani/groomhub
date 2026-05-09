@@ -3,9 +3,11 @@ import { useClientSearch } from "../hooks/useClientSearch";
 import Icon from "../assets/Icon";
 import ClientCard from "../components/ClientCard";
 import NewClientModal from "../components/NewClientModal";
+import AppointmentFormModal from "../components/AppointmentFormModal";
 
 export default function ClientsView({ onSelectContact }) {
   const [showModal, setShowModal] = useState(false);
+  const [bookForContact, setBookForContact] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { contacts, isLoading, isSearching, status, sentinelRef } =
     useClientSearch(searchQuery);
@@ -88,7 +90,12 @@ export default function ClientsView({ onSelectContact }) {
           </div>
           <div className="divide-y divide-border">
             {contacts.map((contact) => (
-              <ClientCard key={contact._id} contact={contact} onClick={onSelectContact} />
+              <ClientCard
+                key={contact._id}
+                contact={contact}
+                onClick={onSelectContact}
+                onBook={setBookForContact}
+              />
             ))}
           </div>
           <div ref={sentinelRef} />
@@ -105,6 +112,13 @@ export default function ClientsView({ onSelectContact }) {
       )}
 
       {showModal && <NewClientModal onClose={() => setShowModal(false)} />}
+      {bookForContact && (
+        <AppointmentFormModal
+          contactId={bookForContact._id}
+          appointment={null}
+          onClose={() => setBookForContact(null)}
+        />
+      )}
     </div>
   );
 }
