@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "convex/react";
 import { DndContext, PointerSensor, useSensors, useSensor } from "@dnd-kit/core";
 import { api } from "../../convex/_generated/api";
 import { SCHEDULE_HOURS } from "../constants/appointments";
+import { SLOT_MINUTES } from "../components/DayGrid";
+import { isPastDateTime } from "../utils/time";
 import { useAuth } from "../context/AuthContext";
 import MultiDayGrid from "../components/MultiDayGrid";
 import AppointmentFormModal from "../components/AppointmentFormModal";
@@ -62,11 +64,12 @@ export default function ScheduleView() {
     if (!appt) return;
     const [newDate, slotStr] = String(over.id).split("::");
     const slotIndex = Number(slotStr);
-    const totalMins = SCHEDULE_HOURS.start * 60 + slotIndex * 30;
+    const totalMins = SCHEDULE_HOURS.start * 60 + slotIndex * SLOT_MINUTES;
     const h = Math.floor(totalMins / 60);
     const m = totalMins % 60;
     const newTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     if (appt.date === newDate && appt.time === newTime) return;
+    if (isPastDateTime(newDate, newTime)) return;  // Block dropping onto a past slot.
     moveAppt({ appointmentId: appt._id, date: newDate, time: newTime }).catch((err) => {
       if (err?.data?.kind === "groomer_conflict") setConflict(err.data);
       else console.error("Failed to move appointment:", err);

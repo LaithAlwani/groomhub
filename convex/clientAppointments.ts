@@ -7,6 +7,10 @@ import { requireShopAccess } from "./sessions";
 // any shop staff viewing a client detail page needs the full grooming history for
 // service-quality context (past services, notes, who groomed them previously).
 // The role-based visibility rule applies to the schedule view, not pet history.
+//
+// History only shows RESOLVED appointments — completed, cancelled, no_show, or
+// legacy imports (no status). Active appointments (pending/confirmed/checked_in)
+// belong on the schedule view, not in the historical record.
 export const getAppointmentsByContact = query({
   args: {
     contactId:      v.id("clients"),
@@ -18,10 +22,17 @@ export const getAppointmentsByContact = query({
     if (!client || client.shopId !== shopId) {
       return { page: [], isDone: true, continueCursor: "" };
     }
-    return await ctx.db
+    const result = await ctx.db
       .query("appointments")
       .withIndex("by_contact_and_date", (q) => q.eq("contact_id", args.contactId))
       .order("desc")
       .paginate(args.paginationOpts);
+
+    return {
+      ...result,
+      page: result.page.filter(
+        (a) => a.status !== "pending" && a.status !== "confirmed" && a.status !== "checked_in",
+      ),
+    };
   },
 });

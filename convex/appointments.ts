@@ -3,7 +3,6 @@ import { MutationCtx, QueryCtx } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import {
   requireShopAccess,
-  requireAdmin,
   requireApptAccess,
   isAdminRole,
   canSeeAppt,
@@ -47,7 +46,7 @@ async function assertNoGroomerConflict(
   for (const a of candidates) {
     if (args.excludeId && a._id === args.excludeId) continue;
     if (a.date !== args.date) continue;
-    if (a.status === "cancelled" || a.status === "completed") continue;
+    if (a.status === "cancelled" || a.status === "completed" || a.status === "no_show") continue;
     const existingStart = timeToMinutes(a.time);
     if (existingStart === null) continue;
     const existingEnd = existingStart + (a.duration ?? 60);
@@ -168,7 +167,7 @@ export const getTodayAppointments = query({
       .take(200);
 
     const filtered = (admin ? appts : appts.filter((a) => canSeeAppt(a, identity.tokenIdentifier)))
-      .filter((a) => a.status !== "cancelled");
+      .filter((a) => a.status !== "cancelled" && a.status !== "no_show");
 
     return await Promise.all(
       filtered.map(async (a) => {
@@ -367,10 +366,10 @@ export const completeAppointment = mutation({
     price:         v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { identity, shopId } = await requireAdmin(ctx);
-
-    const appt = await ctx.db.get(args.appointmentId);
-    if (!appt || appt.shopId !== shopId) throw new Error("Appointment not found");
+    const { identity, appt } = await requireApptAccess(ctx, args.appointmentId);
+    if (appt.status !== "checked_in") {
+      throw new Error("Can only complete an appointment after check-in");
+    }
 
     const patch: Record<string, unknown> = {
       status:     "completed",
@@ -386,6 +385,38 @@ export const completeAppointment = mutation({
     if (args.note_text?.trim()) {
       await refreshLastVisit(ctx, appt.contact_id);
     }
+  },
+});
+
+export const checkInAppointment = mutation({
+  args: { appointmentId: v.id("appointments") },
+  handler: async (ctx, args) => {
+    const { identity, appt } = await requireApptAccess(ctx, args.appointmentId);
+    if (appt.status !== "confirmed") {
+      throw new Error("Can only check in a confirmed appointment");
+    }
+    await ctx.db.patch(args.appointmentId, {
+      status:     "checked_in",
+      editedBy:   identity.name ?? identity.email ?? "Unknown",
+      editedById: identity.tokenIdentifier,
+      edited_at:  Date.now(),
+    });
+  },
+});
+
+export const markNoShow = mutation({
+  args: { appointmentId: v.id("appointments") },
+  handler: async (ctx, args) => {
+    const { identity, appt } = await requireApptAccess(ctx, args.appointmentId);
+    if (appt.status !== "confirmed") {
+      throw new Error("Can only mark a confirmed appointment as no-show");
+    }
+    await ctx.db.patch(args.appointmentId, {
+      status:     "no_show",
+      editedBy:   identity.name ?? identity.email ?? "Unknown",
+      editedById: identity.tokenIdentifier,
+      edited_at:  Date.now(),
+    });
   },
 });
 
@@ -420,7 +451,10 @@ export const moveAppointment = mutation({
 export const cancelAppointment = mutation({
   args: { appointmentId: v.id("appointments") },
   handler: async (ctx, args) => {
-    const { identity } = await requireApptAccess(ctx, args.appointmentId);
+    const { identity, appt } = await requireApptAccess(ctx, args.appointmentId);
+    if (appt.status !== "pending" && appt.status !== "confirmed") {
+      throw new Error("Can only cancel a pending or confirmed appointment");
+    }
 
     await ctx.db.patch(args.appointmentId, {
       status:     "cancelled",

@@ -10,6 +10,7 @@ import {
   GROOMER_SWATCH_HEX,
   defaultGroomerColor,
 } from "../constants/groomerColors";
+import { matchesUser } from "../utils/userMatch";
 import UserFormModal from "./UserFormModal";
 
 function ColorDotPicker({ activeColor, isExplicit, onPick }) {
@@ -88,13 +89,7 @@ export default function UserManagement() {
   const [actionError,     setActionError]     = useState("");
 
   function findGroomer(tokenId) {
-    if (!tokenId) return null;
-    // Convex's identity.tokenIdentifier is "<issuer>|<subject>" (e.g.
-    // "https://big-ray-65.clerk.accounts.dev|user_2abc"), but Clerk's
-    // membership.publicUserData.userId is just the bare subject. Match either form.
-    return (groomers ?? []).find((g) =>
-      g.tokenIdentifier === tokenId || g.tokenIdentifier.endsWith(`|${tokenId}`),
-    ) ?? null;
+    return (groomers ?? []).find((g) => matchesUser(g.tokenIdentifier, tokenId)) ?? null;
   }
 
   function openAdd() {

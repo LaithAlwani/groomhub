@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import Icon from "../assets/Icon";
-import { GROOMING_SERVICES, DURATIONS, STATUS_LABEL, STATUS_BADGE } from "../constants/appointments";
+import { GROOMING_SERVICES, DURATIONS, STATUS_LABEL, STATUS_BADGE, SCHEDULE_HOURS } from "../constants/appointments";
 import { useAuth } from "../context/AuthContext";
 import { useAppointmentForm } from "../hooks/useAppointmentForm";
 import { isPhoneQuery } from "../utils/phone";
+import { matchesUser } from "../utils/userMatch";
+import { todayLocalDate, currentLocalMinutes, timeStringToMinutes } from "../utils/time";
+import { SLOT_MINUTES } from "./DayGrid";
 import BlacklistWarningDialog from "./BlacklistWarningDialog";
 import ConflictDialog from "./ConflictDialog";
 
@@ -13,6 +16,21 @@ const BASE = "w-full border rounded-xl px-3 py-2 text-sm text-text-primary focus
 function fieldCls(hasError) {
   return `${BASE} ${hasError ? "border-danger focus:ring-danger" : "border-border focus:ring-primary"}`;
 }
+
+// Pre-built list of valid booking times based on schedule hours + slot granularity.
+// Computed once at module load — bounded by SCHEDULE_HOURS so it stays small.
+const TIME_OPTIONS = (() => {
+  const opts = [];
+  for (let h = SCHEDULE_HOURS.start; h < SCHEDULE_HOURS.end; h++) {
+    for (let m = 0; m < 60; m += SLOT_MINUTES) {
+      const value  = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const period = h < 12 ? "AM" : "PM";
+      const hh12   = h % 12 || 12;
+      opts.push({ value, label: `${hh12}:${String(m).padStart(2, "0")} ${period}` });
+    }
+  }
+  return opts;
+})();
 
 function ClientSearchPicker({ onSelect, error }) {
   const [search, setSearch] = useState("");
@@ -137,6 +155,30 @@ export default function AppointmentFormModal({
   });
 
   const apptStatus = appointment?.status ?? null;
+  const isNewBooking = !appointment;
+  const today        = todayLocalDate();
+
+  // For new bookings: drop time options that have already passed when the user
+  // has selected today. Editing existing appointments is unrestricted so admins
+  // can update past records without being blocked.
+  const visibleTimeOptions = useMemo(() => {
+    if (!isNewBooking || form.date !== today) return TIME_OPTIONS;
+    const nowMins = currentLocalMinutes();
+    return TIME_OPTIONS.filter((opt) => {
+      const m = timeStringToMinutes(opt.value);
+      return m !== null && m >= nowMins;
+    });
+  }, [isNewBooking, form.date, today]);
+
+  // If the selected time falls outside the visible (future-only) options
+  // — e.g. the user switched the date to today after the prefill became past —
+  // clear it so the dropdown and the form state stay in sync.
+  useEffect(() => {
+    if (!form.time) return;
+    if (!visibleTimeOptions.some((opt) => opt.value === form.time)) {
+      form.setTime("");
+    }
+  }, [visibleTimeOptions, form.time]);
 
   return (
     <>
@@ -241,6 +283,7 @@ export default function AppointmentFormModal({
                 </label>
                 <input
                   type="date"
+                  min={isNewBooking ? today : undefined}
                   value={form.date}
                   onChange={(e) => { form.setDate(e.target.value); form.clearErr("date"); }}
                   className={fieldCls(!!form.fieldErrors.date)}
@@ -249,12 +292,16 @@ export default function AppointmentFormModal({
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">Time</label>
-                <input
-                  type="time"
+                <select
                   value={form.time}
                   onChange={(e) => form.setTime(e.target.value)}
                   className={fieldCls(false)}
-                />
+                >
+                  <option value="">— Any time —</option>
+                  {visibleTimeOptions.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -324,26 +371,63 @@ export default function AppointmentFormModal({
             )}
 
             <div className="space-y-2 pt-1">
-              {form.isEdit && (apptStatus === "pending" || apptStatus === "confirmed") && user?.isAdmin && (
-                <div className="flex gap-2">
-                  {apptStatus === "confirmed" && (
+              {form.isEdit && (() => {
+                const isOwnAppt = matchesUser(appointment?.createdById, user?.userId)
+                  || matchesUser(appointment?.groomerId, user?.userId);
+                const canAct = user?.isAdmin || isOwnAppt;
+                if (!canAct) return null;
+
+                if (apptStatus === "checked_in") {
+                  return (
                     <button
                       type="button" disabled={form.loading}
                       onClick={form.handleComplete}
-                      className="flex-1 bg-success-light hover:bg-success/20 disabled:opacity-60 text-success-text border border-success/30 rounded-xl py-2 text-sm font-medium transition-colors"
+                      className="w-full bg-success-light hover:bg-success/20 disabled:opacity-60 text-success-text border border-success/30 rounded-xl py-2 text-sm font-medium transition-colors"
                     >
                       {form.loading ? "Saving…" : "Mark as Complete"}
                     </button>
-                  )}
-                  <button
-                    type="button" disabled={form.loading}
-                    onClick={form.handleCancel}
-                    className="flex-1 bg-tag-red hover:bg-danger/20 disabled:opacity-60 text-danger border border-danger/30 rounded-xl py-2 text-sm font-medium transition-colors"
-                  >
-                    Cancel Appointment
-                  </button>
-                </div>
-              )}
+                  );
+                }
+                if (apptStatus === "confirmed") {
+                  return (
+                    <div className="flex gap-2">
+                      <button
+                        type="button" disabled={form.loading}
+                        onClick={form.handleCheckIn}
+                        className="flex-1 bg-primary-light hover:bg-primary/20 disabled:opacity-60 text-primary border border-primary/30 rounded-xl py-2 text-sm font-medium transition-colors"
+                      >
+                        Check in
+                      </button>
+                      <button
+                        type="button" disabled={form.loading}
+                        onClick={form.handleNoShow}
+                        className="flex-1 bg-background-sidebar hover:bg-ui-active disabled:opacity-60 text-text-secondary border border-border rounded-xl py-2 text-sm font-medium transition-colors"
+                      >
+                        No-show
+                      </button>
+                      <button
+                        type="button" disabled={form.loading}
+                        onClick={form.handleCancel}
+                        className="flex-1 bg-tag-red hover:bg-danger/20 disabled:opacity-60 text-danger border border-danger/30 rounded-xl py-2 text-sm font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  );
+                }
+                if (apptStatus === "pending") {
+                  return (
+                    <button
+                      type="button" disabled={form.loading}
+                      onClick={form.handleCancel}
+                      className="w-full bg-tag-red hover:bg-danger/20 disabled:opacity-60 text-danger border border-danger/30 rounded-xl py-2 text-sm font-medium transition-colors"
+                    >
+                      Cancel Appointment
+                    </button>
+                  );
+                }
+                return null;
+              })()}
               <div className="flex gap-3">
                 <button type="button" onClick={onClose}
                   className="flex-1 border border-border text-text-secondary rounded-xl py-2 text-sm font-medium hover:bg-ui-hover transition-colors">

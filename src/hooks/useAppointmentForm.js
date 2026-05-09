@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
+import { snapTimeToSlot } from "../components/DayGrid";
 
 function localDateString() {
   const d = new Date();
@@ -23,6 +24,8 @@ export function useAppointmentForm({
   const updateAppointment   = useMutation(api.appointments.updateAppointment);
   const completeAppointment = useMutation(api.appointments.completeAppointment);
   const cancelAppointment   = useMutation(api.appointments.cancelAppointment);
+  const checkInAppointment  = useMutation(api.appointments.checkInAppointment);
+  const markNoShow          = useMutation(api.appointments.markNoShow);
   const users               = useQuery(api.users.listGroomers);
 
   const isEdit = !!appointment;
@@ -40,23 +43,13 @@ export function useAppointmentForm({
   );
   const activePets = (pets ?? []).filter((p) => p.is_active !== false);
 
-  // Non-admin staff can only book/edit appointments assigned to themselves, so default
-  // their groomer selection to self when creating a new appointment with no prefill.
-  const initialGroomerId = appointment?.groomerId
-    ?? prefillGroomerId
-    ?? (!isAdmin && !appointment ? user?.tokenIdentifier : null)
-    ?? "";
-  const initialGroomer = appointment?.groomer
-    ?? (!isAdmin && !appointment ? user?.displayName : null)
-    ?? "";
-
   const [petId,       setPetId]       = useState(appointment?.pet_id      ?? "");
   const [serviceType, setServiceType] = useState(appointment?.service_type ?? "");
   const [date,        setDate]        = useState(appointment?.date         ?? prefillDate ?? localDateString());
-  const [time,        setTime]        = useState(appointment?.time         ?? prefillTime ?? "");
+  const [time,        setTime]        = useState(snapTimeToSlot(appointment?.time ?? prefillTime ?? ""));
   const [duration,    setDuration]    = useState(appointment?.duration     != null ? String(appointment.duration) : "");
-  const [groomer,     setGroomer]     = useState(initialGroomer);
-  const [groomerId,   setGroomerId]   = useState(initialGroomerId);
+  const [groomer,     setGroomer]     = useState(appointment?.groomer ?? "");
+  const [groomerId,   setGroomerId]   = useState(appointment?.groomerId ?? prefillGroomerId ?? "");
   const [price,       setPrice]       = useState(appointment?.price        != null ? String(appointment.price) : "");
   const [noteText,    setNoteText]    = useState(appointment?.note_text    ?? "");
   const [loading,     setLoading]     = useState(false);
@@ -64,12 +57,17 @@ export function useAppointmentForm({
   const [fieldErrors, setFieldErrors] = useState({});
   const [conflict,    setConflict]    = useState(null);
 
-  // user data may arrive after first render; backfill self-assignment for staff.
+  // For non-admin staff creating a new appointment, auto-select self as the groomer.
+  // We pull from the listGroomers result (which is filtered server-side to just the
+  // calling user for non-admins) rather than user.tokenIdentifier from AuthContext —
+  // the AuthContext value is the bare Clerk ID, but the server stores and expects
+  // the Convex-prefixed form ("<issuer>|<id>") that listGroomers returns.
   useEffect(() => {
-    if (isAdmin || appointment || groomerId || !user?.tokenIdentifier) return;
-    setGroomerId(user.tokenIdentifier);
-    setGroomer(user.displayName ?? "");
-  }, [isAdmin, appointment, groomerId, user?.tokenIdentifier, user?.displayName]);
+    if (isAdmin || appointment || groomerId || !users || users.length === 0) return;
+    const self = users[0];
+    setGroomerId(self.tokenIdentifier);
+    setGroomer(self.displayName ?? "");
+  }, [isAdmin, appointment, groomerId, users]);
 
   function clearErr(field) {
     setFieldErrors((prev) => ({ ...prev, [field]: "" }));
@@ -147,6 +145,32 @@ export function useAppointmentForm({
     }
   }
 
+  async function handleCheckIn() {
+    setSaveError("");
+    setLoading(true);
+    try {
+      await checkInAppointment({ appointmentId: appointment._id });
+      onClose();
+    } catch (err) {
+      setSaveError(err.message ?? "Failed to check in appointment");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleNoShow() {
+    setSaveError("");
+    setLoading(true);
+    try {
+      await markNoShow({ appointmentId: appointment._id });
+      onClose();
+    } catch (err) {
+      setSaveError(err.message ?? "Failed to mark as no-show");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaveError("");
@@ -154,16 +178,17 @@ export function useAppointmentForm({
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
 
     setLoading(true);
-    const resolvedPetId = petId || undefined;
-    const resolvedNote  = noteText.trim() || undefined;
-    const parsedPrice   = price.trim() ? parseFloat(price) : undefined;
+    const resolvedPetId  = petId || undefined;
+    const resolvedNote   = noteText.trim() || undefined;
+    const parsedPrice    = price.trim() ? parseFloat(price) : undefined;
+    const resolvedTime   = time.trim() ? snapTimeToSlot(time.trim()) : undefined;
     try {
       if (isEdit) {
         await updateAppointment({
           appointmentId: appointment._id,
           petId:         resolvedPetId,
           date:          date.trim(),
-          time:          time.trim() || undefined,
+          time:          resolvedTime,
           duration:      duration ? parseInt(duration) : undefined,
           service_type:  serviceType.trim() || undefined,
           note_text:     resolvedNote,
@@ -176,7 +201,7 @@ export function useAppointmentForm({
           contactId,
           petId:        resolvedPetId,
           date:         date.trim(),
-          time:         time.trim() || undefined,
+          time:         resolvedTime,
           duration:     duration ? parseInt(duration) : undefined,
           service_type: serviceType.trim() || undefined,
           note_text:    resolvedNote,
@@ -224,5 +249,7 @@ export function useAppointmentForm({
     handleSubmit,
     handleComplete,
     handleCancel,
+    handleCheckIn,
+    handleNoShow,
   };
 }

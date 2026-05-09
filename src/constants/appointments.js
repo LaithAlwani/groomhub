@@ -24,23 +24,29 @@ export const DURATIONS = [
 export const SCHEDULE_HOURS = { start: 8, end: 20 };
 
 export const STATUS_LABEL = {
-  pending:   "Pending",
-  confirmed: "Confirmed",
-  completed: "Completed",
-  cancelled: "Cancelled",
+  pending:    "Pending",
+  confirmed:  "Confirmed",
+  checked_in: "Checked In",
+  completed:  "Completed",
+  cancelled:  "Cancelled",
+  no_show:    "No-show",
 };
 
 export const STATUS_BADGE = {
-  pending:   "bg-warning/10 text-warning",
-  confirmed: "bg-primary-light text-primary",
-  completed: "bg-success-light text-success-text",
-  cancelled: "bg-tag-red text-tag-redText",
+  pending:    "bg-warning/10 text-warning",
+  confirmed:  "bg-primary-light text-primary",
+  checked_in: "bg-primary-light text-primary",
+  completed:  "bg-success-light text-success-text",
+  cancelled:  "bg-tag-red text-tag-redText",
+  no_show:    "bg-tag-red text-tag-redText",
 };
 
 // Solid red/yellow/green pill for the schedule view appointment blocks.
 export const STATUS_PILL = {
-  pending:   { bg: "bg-warning", label: "Pending"   },
-  confirmed: { bg: "bg-success", label: "Confirmed" },
-  completed: { bg: "bg-success", label: "Done"      },
-  cancelled: { bg: "bg-danger",  label: "Cancelled" },
+  pending:    { bg: "bg-warning", label: "Pending"   },
+  confirmed:  { bg: "bg-success", label: "Confirmed" },
+  checked_in: { bg: "bg-success", label: "Checked In"},
+  completed:  { bg: "bg-success", label: "Done"      },
+  cancelled:  { bg: "bg-danger",  label: "Cancelled" },
+  no_show:    { bg: "bg-danger",  label: "No-show"   },
 };

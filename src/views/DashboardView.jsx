@@ -58,7 +58,7 @@ function ApptTable({ rows, emptyText, children }) {
   );
 }
 
-function PendingRow({ appt, onApprove, onReject, isAdmin }) {
+function PendingRow({ appt, onApprove, onReject }) {
   const [approveLoading, setApproveLoading] = useState(false);
   const [rejectLoading,  setRejectLoading]  = useState(false);
   return (
@@ -69,26 +69,24 @@ function PendingRow({ appt, onApprove, onReject, isAdmin }) {
         {appt.date ?? "—"}{appt.time ? ` · ${formatTime(appt.time)}` : ""}
       </td>
       <td className="px-4 py-3 text-text-secondary">{appt.service_type ?? <span className="text-text-muted">—</span>}</td>
-      {isAdmin && (
-        <td className="px-4 py-3">
-          <div className="flex items-center justify-end gap-2">
-            <button
-              disabled={approveLoading || rejectLoading}
-              onClick={async () => { setApproveLoading(true); try { await onApprove(appt._id); } finally { setApproveLoading(false); } }}
-              className="text-xs font-medium bg-primary-light text-primary hover:bg-primary hover:text-white px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {approveLoading ? "…" : "Approve"}
-            </button>
-            <button
-              disabled={approveLoading || rejectLoading}
-              onClick={async () => { setRejectLoading(true); try { await onReject(appt._id); } finally { setRejectLoading(false); } }}
-              className="text-xs font-medium text-danger hover:bg-tag-red px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {rejectLoading ? "…" : "Reject"}
-            </button>
-          </div>
-        </td>
-      )}
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            disabled={approveLoading || rejectLoading}
+            onClick={async () => { setApproveLoading(true); try { await onApprove(appt._id); } finally { setApproveLoading(false); } }}
+            className="text-xs font-medium bg-primary-light text-primary hover:bg-primary hover:text-white px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {approveLoading ? "…" : "Approve"}
+          </button>
+          <button
+            disabled={approveLoading || rejectLoading}
+            onClick={async () => { setRejectLoading(true); try { await onReject(appt._id); } finally { setRejectLoading(false); } }}
+            className="text-xs font-medium text-danger hover:bg-tag-red px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {rejectLoading ? "…" : "Reject"}
+          </button>
+        </div>
+      </td>
     </tr>
   );
 }
@@ -168,7 +166,7 @@ export default function DashboardView() {
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-widest">Pet</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-widest">Date / Time</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-widest">Service</th>
-                    {user?.isAdmin && <th className="text-right px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-widest">Action</th>}
+                    <th className="text-right px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-widest">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -176,7 +174,6 @@ export default function DashboardView() {
                     <PendingRow
                       key={a._id}
                       appt={a}
-                      isAdmin={user?.isAdmin}
                       onApprove={(id) => approveAppt({ appointmentId: id })}
                       onReject={(id) => rejectAppt({ appointmentId: id })}
                     />

@@ -69,8 +69,10 @@ export default defineSchema({
     status:       v.optional(v.union(
       v.literal("pending"),
       v.literal("confirmed"),
+      v.literal("checked_in"),
       v.literal("completed"),
       v.literal("cancelled"),
+      v.literal("no_show"),
     )),
     price:        v.optional(v.number()),
     groomer:      v.optional(v.string()),

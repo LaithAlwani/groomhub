@@ -41,7 +41,7 @@ export const getStats = query({
     const weekRevenue = weekFiltered.reduce((sum, a) => sum + (a.price ?? 0), 0);
 
     const todayFiltered = todayAppts.filter(
-      (a) => a.status !== "cancelled" && (isAdmin || canSeeAppt(a, identity.tokenIdentifier)),
+      (a) => a.status !== "cancelled" && a.status !== "no_show" && (isAdmin || canSeeAppt(a, identity.tokenIdentifier)),
     );
 
     const pendingAppts = await ctx.db

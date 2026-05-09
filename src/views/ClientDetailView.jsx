@@ -24,9 +24,11 @@ export default function ClientDetailView({ contactId, onBack }) {
     confirmDeleteVaccination, setConfirmDeleteVaccination, handleDeleteVaccination,
   } = useClientDetail(contactId);
 
-  const approveAppt = useMutation(api.appointments.approveAppointment);
-  const rejectAppt  = useMutation(api.appointments.rejectAppointment);
-  const cancelAppt  = useMutation(api.appointments.cancelAppointment);
+  const approveAppt  = useMutation(api.appointments.approveAppointment);
+  const rejectAppt   = useMutation(api.appointments.rejectAppointment);
+  const cancelAppt   = useMutation(api.appointments.cancelAppointment);
+  const checkInAppt  = useMutation(api.appointments.checkInAppointment);
+  const noShowAppt   = useMutation(api.appointments.markNoShow);
 
   const [showEditClient,   setShowEditClient]   = useState(false);
   const [petModal,         setPetModal]         = useState(null);
@@ -374,6 +376,8 @@ export default function ClientDetailView({ contactId, onBack }) {
                   onApprove={() => approveAppt({ appointmentId: appt._id })}
                   onReject={() => rejectAppt({ appointmentId: appt._id })}
                   onCancel={() => cancelAppt({ appointmentId: appt._id })}
+                  onCheckIn={() => checkInAppt({ appointmentId: appt._id })}
+                  onNoShow={() => noShowAppt({ appointmentId: appt._id })}
                   confirmDelete={confirmDeleteAppt === appt._id}
                   onConfirmDelete={() => handleDeleteAppt(appt._id)}
                   onCancelDelete={() => setConfirmDeleteAppt(null)}

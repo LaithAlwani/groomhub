@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../assets/Icon";
 import { STATUS_BADGE, STATUS_LABEL } from "../constants/appointments";
+import { matchesUser } from "../utils/userMatch";
 
 function formatTime(time) {
   if (!time) return null;
@@ -10,19 +11,24 @@ function formatTime(time) {
 }
 
 export default function AppointmentRow({
-  appt, user, onEdit, onDelete, onApprove, onReject, onCancel,
+  appt, user, onEdit, onDelete, onApprove, onReject, onCancel, onCheckIn, onNoShow,
   confirmDelete, onConfirmDelete, onCancelDelete,
 }) {
-  const [expanded,       setExpanded]       = useState(false);
-  const [approveLoading, setApproveLoading] = useState(false);
-  const [rejectLoading,  setRejectLoading]  = useState(false);
-  const [cancelLoading,  setCancelLoading]  = useState(false);
+  const [expanded,        setExpanded]        = useState(false);
+  const [approveLoading,  setApproveLoading]  = useState(false);
+  const [rejectLoading,   setRejectLoading]   = useState(false);
+  const [cancelLoading,   setCancelLoading]   = useState(false);
+  const [checkInLoading,  setCheckInLoading]  = useState(false);
+  const [noShowLoading,   setNoShowLoading]   = useState(false);
 
   const status           = appt.status ?? "completed";
   const isPending        = status === "pending";
   const isConfirmed      = status === "confirmed";
+  const isCheckedIn      = status === "checked_in";
   const timeFmt          = formatTime(appt.time);
-  const canActOnPending  = isPending && (user?.isAdmin || user?.tokenIdentifier === appt.groomerId);
+  const isOwnAppt        = matchesUser(appt.createdById, user?.userId) || matchesUser(appt.groomerId, user?.userId);
+  const canAct           = user?.isAdmin || isOwnAppt;
+  const canActOnPending  = isPending && (user?.isAdmin || matchesUser(appt.groomerId, user?.userId));
 
   return (
     <div className="px-5 py-4 hover:bg-ui-hover transition-colors">
@@ -108,7 +114,31 @@ export default function AppointmentRow({
                 {rejectLoading ? "…" : "Reject"}
               </button>
             )}
-            {isConfirmed && user?.isAdmin && (
+            {isConfirmed && canAct && onCheckIn && (
+              <button
+                disabled={checkInLoading}
+                onClick={async () => {
+                  setCheckInLoading(true);
+                  try { await onCheckIn(); } finally { setCheckInLoading(false); }
+                }}
+                className="text-xs font-medium bg-primary-light text-primary hover:bg-primary hover:text-white px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {checkInLoading ? "…" : "Check in"}
+              </button>
+            )}
+            {isConfirmed && canAct && onNoShow && (
+              <button
+                disabled={noShowLoading}
+                onClick={async () => {
+                  setNoShowLoading(true);
+                  try { await onNoShow(); } finally { setNoShowLoading(false); }
+                }}
+                className="text-xs font-medium text-text-secondary hover:bg-ui-active px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {noShowLoading ? "…" : "No-show"}
+              </button>
+            )}
+            {isCheckedIn && canAct && (
               <button
                 onClick={onEdit}
                 className="text-xs font-medium bg-success-light text-success-text hover:bg-success/20 border border-success/30 px-2.5 py-1 rounded-lg transition-colors"
@@ -116,7 +146,7 @@ export default function AppointmentRow({
                 Complete
               </button>
             )}
-            {(isPending || isConfirmed) && (user?.isAdmin || appt.createdById === user?.userId) && onCancel && (
+            {(isPending || isConfirmed) && canAct && onCancel && (
               <button
                 disabled={cancelLoading}
                 onClick={async () => {
@@ -128,7 +158,7 @@ export default function AppointmentRow({
                 {cancelLoading ? "…" : "Cancel"}
               </button>
             )}
-            {(user?.isAdmin || appt.createdById === user?.userId) && (
+            {(user?.isAdmin || isOwnAppt) && (
               <button onClick={onEdit} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-ui-active rounded-lg transition-colors">
                 <Icon name="edit" className="w-3.5 h-3.5" />
               </button>

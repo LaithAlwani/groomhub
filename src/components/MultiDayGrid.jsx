@@ -4,9 +4,10 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { api } from "../../convex/_generated/api";
 import { useSchedule } from "../hooks/useSchedule";
-import { SLOT_HEIGHT, SLOT_COUNT, BLOCK_COLOR, timeToSlot } from "./DayGrid";
+import { SLOT_HEIGHT, SLOT_COUNT, SLOT_MINUTES, SLOTS_PER_HOUR, BLOCK_COLOR, timeToSlot } from "./DayGrid";
 import { SCHEDULE_HOURS, STATUS_PILL } from "../constants/appointments";
 import { blockClassesFor } from "../constants/groomerColors";
+import { isPastDateTime } from "../utils/time";
 
 const TODAY = (() => {
   const d = new Date();
@@ -23,7 +24,7 @@ function TimeGutter() {
   return (
     <div className="w-16 shrink-0 border-r border-border bg-background-sidebar">
       {Array.from({ length: SLOT_COUNT }).map((_, i) => {
-        const totalMins = SCHEDULE_HOURS.start * 60 + i * 30;
+        const totalMins = SCHEDULE_HOURS.start * 60 + i * SLOT_MINUTES;
         const h = Math.floor(totalMins / 60);
         const m = totalMins % 60;
         return (
@@ -40,14 +41,18 @@ function TimeGutter() {
   );
 }
 
-function DroppableSlot({ id, slotIndex, isHour, onClick }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+function DroppableSlot({ id, slotIndex, isHour, isPast, onClick }) {
+  const { setNodeRef, isOver } = useDroppable({ id, disabled: isPast });
   return (
     <div
       ref={setNodeRef}
-      onClick={onClick}
-      className={`absolute left-0 right-0 border-b cursor-pointer transition-colors ${
-        isOver ? "bg-primary/10" : "hover:bg-ui-hover"
+      onClick={isPast ? undefined : onClick}
+      className={`absolute left-0 right-0 border-b transition-colors ${
+        isPast
+          ? "bg-background-sidebar cursor-not-allowed"
+          : isOver
+            ? "bg-primary/10 cursor-pointer"
+            : "hover:bg-ui-hover cursor-pointer"
       } ${isHour ? "border-border" : "border-border/40"}`}
       style={{ top: slotIndex * SLOT_HEIGHT, height: SLOT_HEIGHT }}
     />
@@ -98,7 +103,7 @@ function DraggableAppt({ appt, topPx, heightPx, leftPx, rightPx, colorCls, isDra
 
 function resolveOverlaps(appointments) {
   const items = appointments
-    .map((a) => ({ appt: a, slot: timeToSlot(a.time) ?? -1, span: Math.max(1, Math.round((a.duration ?? 60) / 30)) }))
+    .map((a) => ({ appt: a, slot: timeToSlot(a.time) ?? -1, span: Math.max(1, Math.round((a.duration ?? 60) / SLOT_MINUTES)) }))
     .sort((a, b) => a.slot - b.slot);
 
   return items.map((item, i) => {
@@ -120,7 +125,7 @@ function DayColumnPanel({ dateStr, groomerFilter, groomerColors, onSlotClick, on
 
   function blockColorFor(appt) {
     const status = appt.status ?? "completed";
-    if (status === "cancelled") return BLOCK_COLOR.cancelled;
+    if (status === "cancelled" || status === "no_show") return BLOCK_COLOR.cancelled;
     return blockClassesFor(groomerColors?.get(appt.groomerId) ?? null, appt.groomerId ?? appt._id);
   }
 
@@ -135,7 +140,7 @@ function DayColumnPanel({ dateStr, groomerFilter, groomerColors, onSlotClick, on
 
   function handleSlotClick(slotIndex) {
     if (!onSlotClick) return;
-    const totalMins = SCHEDULE_HOURS.start * 60 + slotIndex * 30;
+    const totalMins = SCHEDULE_HOURS.start * 60 + slotIndex * SLOT_MINUTES;
     const h = Math.floor(totalMins / 60);
     const m = totalMins % 60;
     onSlotClick(dateStr, `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
@@ -154,21 +159,28 @@ function DayColumnPanel({ dateStr, groomerFilter, groomerColors, onSlotClick, on
         <div className="animate-pulse bg-background-sidebar" style={{ minHeight: SLOT_COUNT * SLOT_HEIGHT }} />
       ) : (
         <div className="relative" style={{ minHeight: SLOT_COUNT * SLOT_HEIGHT }}>
-          {Array.from({ length: SLOT_COUNT }).map((_, i) => (
-            <DroppableSlot
-              key={i}
-              id={`${dateStr}::${i}`}
-              slotIndex={i}
-              isHour={i % 2 === 0}
-              onClick={() => handleSlotClick(i)}
-            />
-          ))}
+          {Array.from({ length: SLOT_COUNT }).map((_, i) => {
+            const totalMins = SCHEDULE_HOURS.start * 60 + i * SLOT_MINUTES;
+            const h = Math.floor(totalMins / 60);
+            const m = totalMins % 60;
+            const slotTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+            return (
+              <DroppableSlot
+                key={i}
+                id={`${dateStr}::${i}`}
+                slotIndex={i}
+                isHour={i % SLOTS_PER_HOUR === 0}
+                isPast={isPastDateTime(dateStr, slotTime)}
+                onClick={() => handleSlotClick(i)}
+              />
+            );
+          })}
 
           {resolved.map(({ appt, slot, span, col, totalCols }) => {
             if (slot < 0 || slot >= SLOT_COUNT) return null;
             const status     = appt.status ?? "completed";
             const colorCls   = blockColorFor(appt);
-            const isDraggable = status !== "completed" && status !== "cancelled";
+            const isDraggable = status === "pending" || status === "confirmed";
             const isFaded    = status === "completed";
             const leftPx     = totalCols > 1 ? (col === 0 ? 2 : "50%") : 2;
             const rightPx    = totalCols > 1 ? (col === 0 ? "50%" : 2) : 2;
