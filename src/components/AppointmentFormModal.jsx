@@ -9,6 +9,7 @@ import { isPhoneQuery } from "../utils/phone";
 import { matchesUser } from "../utils/userMatch";
 import { todayLocalDate, currentLocalMinutes, timeStringToMinutes } from "../utils/time";
 import { SLOT_MINUTES } from "./DayGrid";
+
 import BlacklistWarningDialog from "./BlacklistWarningDialog";
 import ConflictDialog from "./ConflictDialog";
 
@@ -158,17 +159,64 @@ export default function AppointmentFormModal({
   const isNewBooking = !appointment;
   const today        = todayLocalDate();
 
-  // For new bookings: drop time options that have already passed when the user
-  // has selected today. Editing existing appointments is unrestricted so admins
-  // can update past records without being blocked.
+  // Existing appointments for the selected date; used to hide conflict slots.
+  // Server already filters by canSee for non-admins, so a non-admin only sees
+  // their own conflicts (which is exactly what they need since they can only
+  // book for themselves).
+  const dateAppointments = useQuery(
+    api.appointments.getScheduleAppointments,
+    form.date ? { date: form.date } : "skip",
+  );
+
+  // Build the bookable time list by composing two filters:
+  //   1. past-time filter — applies whenever the chosen date is today, for both
+  //      new bookings AND edits. The appointment's existing time is exempted so
+  //      that simply editing notes/price on an in-progress appointment doesn't
+  //      clobber its time field via the visibleTimeOptions cleanup effect.
+  //   2. conflict filter — drop start times whose [start, start+duration) range
+  //      overlaps any active appointment for the selected groomer on this date.
   const visibleTimeOptions = useMemo(() => {
-    if (!isNewBooking || form.date !== today) return TIME_OPTIONS;
-    const nowMins = currentLocalMinutes();
-    return TIME_OPTIONS.filter((opt) => {
-      const m = timeStringToMinutes(opt.value);
-      return m !== null && m >= nowMins;
-    });
-  }, [isNewBooking, form.date, today]);
+    let opts = TIME_OPTIONS;
+
+    if (form.date === today) {
+      // Cutoff is the START of the NEXT slot after now. At 1:06 → 1:15,
+      // at 1:15 exactly → 1:30, at 1:30 exactly → 1:45. The slot the user
+      // is currently sitting in is treated as already-gone for booking.
+      const nowMins      = currentLocalMinutes();
+      const earliestMins = Math.floor(nowMins / SLOT_MINUTES) * SLOT_MINUTES + SLOT_MINUTES;
+      const keepTime     = appointment?.time ?? null;
+      opts = opts.filter((opt) => {
+        if (opt.value === keepTime) return true;
+        const m = timeStringToMinutes(opt.value);
+        return m !== null && m >= earliestMins;
+      });
+    }
+
+    if (form.groomerId && dateAppointments !== undefined) {
+      const conflicting = dateAppointments.filter((a) =>
+        a.groomerId === form.groomerId
+        && a._id !== appointment?._id
+        && a.status !== "cancelled"
+        && a.status !== "completed"
+        && a.status !== "no_show"
+        && a.time
+      );
+      const newDuration = form.duration ? parseInt(form.duration) : 60;
+      opts = opts.filter((opt) => {
+        const start = timeStringToMinutes(opt.value);
+        if (start === null) return false;
+        const end = start + newDuration;
+        return !conflicting.some((a) => {
+          const aStart = timeStringToMinutes(a.time);
+          if (aStart === null) return false;
+          const aEnd = aStart + (a.duration ?? 60);
+          return start < aEnd && aStart < end;
+        });
+      });
+    }
+
+    return opts;
+  }, [form.date, today, form.groomerId, form.duration, dateAppointments, appointment?._id, appointment?.time]);
 
   // If the selected time falls outside the visible (future-only) options
   // — e.g. the user switched the date to today after the prefill became past —
@@ -417,13 +465,29 @@ export default function AppointmentFormModal({
                 }
                 if (apptStatus === "pending") {
                   return (
-                    <button
-                      type="button" disabled={form.loading}
-                      onClick={form.handleCancel}
-                      className="w-full bg-tag-red hover:bg-danger/20 disabled:opacity-60 text-danger border border-danger/30 rounded-xl py-2 text-sm font-medium transition-colors"
-                    >
-                      Cancel Appointment
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button" disabled={form.loading}
+                        onClick={form.handleApprove}
+                        className="flex-1 bg-success-light hover:bg-success/20 disabled:opacity-60 text-success-text border border-success/30 rounded-xl py-2 text-sm font-medium transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button" disabled={form.loading}
+                        onClick={form.handleReject}
+                        className="flex-1 bg-tag-red hover:bg-danger/20 disabled:opacity-60 text-danger border border-danger/30 rounded-xl py-2 text-sm font-medium transition-colors"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button" disabled={form.loading}
+                        onClick={form.handleCancel}
+                        className="flex-1 bg-background-sidebar hover:bg-ui-active disabled:opacity-60 text-text-secondary border border-border rounded-xl py-2 text-sm font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   );
                 }
                 return null;

@@ -164,7 +164,13 @@ export default function PetFormModal({ clientId, pet, onClose }) {
               </label>
               <select
                 value={gender}
-                onChange={(e) => { setGender(e.target.value); clearErr("gender"); }}
+                onChange={(e) => {
+                  // Clear incompatible status when gender changes (e.g. male+spayed
+                  // or female+neutered are nonsensical).
+                  setStatus("");
+                  setGender(e.target.value);
+                  clearErr("gender");
+                }}
                 className={fieldCls(fieldErrors.gender)}
               >
                 <option value="">— Select gender —</option>
@@ -187,20 +193,32 @@ export default function PetFormModal({ clientId, pet, onClose }) {
             </div>
           </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className={INPUT_OK}
-            >
-              <option value="">— Select status —</option>
-              <option value="intact">Intact</option>
-              <option value="spayed">Spayed</option>
-              <option value="neutered">Neutered</option>
-            </select>
-          </div>
+          {/* Status — only shown once gender is picked. Single toggle for the
+              altered status; OFF is the default and means the pet is intact. */}
+          {gender && (() => {
+            const alteredValue = gender === "male" ? "neutered" : "spayed";
+            const alteredLabel = gender === "male" ? "Neutered" : "Spayed";
+            const isAltered    = status === alteredValue;
+            return (
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">Status</label>
+                <button
+                  type="button"
+                  onClick={() => setStatus(isAltered ? "" : alteredValue)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    isAltered
+                      ? "bg-primary text-white border-primary"
+                      : "border-border text-text-secondary hover:bg-ui-hover"
+                  }`}
+                >
+                  {alteredLabel}
+                </button>
+                <p className="text-xs text-text-muted mt-1.5">
+                  {isAltered ? `${alteredLabel}.` : "Intact (no status selected)."}
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Weight */}
           <div>

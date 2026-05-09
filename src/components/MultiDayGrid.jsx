@@ -23,6 +23,9 @@ function formatHeaderDate(dateStr) {
 function TimeGutter() {
   return (
     <div className="w-16 shrink-0 border-r border-border bg-background-sidebar">
+      {/* Empty header row that matches the day-column date header so the
+          slot labels below align with the slot rows in each day column. */}
+      <div className="text-xs font-semibold py-2 border-b border-border">&nbsp;</div>
       {Array.from({ length: SLOT_COUNT }).map((_, i) => {
         const totalMins = SCHEDULE_HOURS.start * 60 + i * SLOT_MINUTES;
         const h = Math.floor(totalMins / 60);

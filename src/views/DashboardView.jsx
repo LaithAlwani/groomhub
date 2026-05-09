@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "../context/AuthContext";
@@ -99,6 +99,18 @@ export default function DashboardView() {
 
   const [showToday,   setShowToday]   = useState(false);
   const [showPending, setShowPending] = useState(false);
+
+  // Auto-expand the pending section the first time we see a non-zero count,
+  // so admins arriving at the dashboard immediately see what needs approval.
+  // Tracked via ref so manually closing the section after auto-open is sticky.
+  const autoOpenedPendingRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedPendingRef.current) return;
+    if ((stats?.pendingApprovals ?? 0) > 0) {
+      setShowPending(true);
+      autoOpenedPendingRef.current = true;
+    }
+  }, [stats?.pendingApprovals]);
 
   const hour      = new Date().getHours();
   const greeting  = hour < 12 ? "Morning" : hour < 17 ? "Afternoon" : "Evening";

@@ -26,6 +26,8 @@ export function useAppointmentForm({
   const cancelAppointment   = useMutation(api.appointments.cancelAppointment);
   const checkInAppointment  = useMutation(api.appointments.checkInAppointment);
   const markNoShow          = useMutation(api.appointments.markNoShow);
+  const approveAppointment  = useMutation(api.appointments.approveAppointment);
+  const rejectAppointment   = useMutation(api.appointments.rejectAppointment);
   const users               = useQuery(api.users.listGroomers);
 
   const isEdit = !!appointment;
@@ -171,6 +173,32 @@ export function useAppointmentForm({
     }
   }
 
+  async function handleApprove() {
+    setSaveError("");
+    setLoading(true);
+    try {
+      await approveAppointment({ appointmentId: appointment._id });
+      onClose();
+    } catch (err) {
+      setSaveError(err.message ?? "Failed to approve appointment");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReject() {
+    setSaveError("");
+    setLoading(true);
+    try {
+      await rejectAppointment({ appointmentId: appointment._id });
+      onClose();
+    } catch (err) {
+      setSaveError(err.message ?? "Failed to reject appointment");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaveError("");
@@ -251,5 +279,7 @@ export function useAppointmentForm({
     handleCancel,
     handleCheckIn,
     handleNoShow,
+    handleApprove,
+    handleReject,
   };
 }
