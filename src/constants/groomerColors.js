@@ -38,6 +38,20 @@ export const GROOMER_SWATCH_CLASSES = {
   lime:    "bg-groomer-limeSolid",
 };
 
+// Hex fallback for the picker UI specifically — used as inline style on the small
+// swatch circles so they always render even if Tailwind hasn't (re)built the
+// `groomer-*Solid` tokens. Deliberate, scoped exception to the no-inline-styles rule.
+export const GROOMER_SWATCH_HEX = {
+  rose:    "#F43F5E",
+  amber:   "#F59E0B",
+  emerald: "#10B981",
+  sky:     "#0EA5E9",
+  violet:  "#8B5CF6",
+  fuchsia: "#D946EF",
+  cyan:    "#06B6D4",
+  lime:    "#84CC16",
+};
+
 // Deterministic fallback for users without a saved color, so blocks still vary
 // visually rather than all collapsing to one default.
 export function defaultGroomerColor(seed) {

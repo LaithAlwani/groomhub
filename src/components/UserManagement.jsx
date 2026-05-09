@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOrganization } from "@clerk/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -7,10 +7,59 @@ import Icon from "../assets/Icon";
 import {
   GROOMER_COLOR_KEYS,
   GROOMER_COLOR_LABELS,
-  GROOMER_SWATCH_CLASSES,
+  GROOMER_SWATCH_HEX,
   defaultGroomerColor,
 } from "../constants/groomerColors";
 import UserFormModal from "./UserFormModal";
+
+function ColorDotPicker({ activeColor, isExplicit, onPick }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e) {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={`Color: ${GROOMER_COLOR_LABELS[activeColor]}${isExplicit ? "" : " (auto)"}`}
+        style={{ background: GROOMER_SWATCH_HEX[activeColor] }}
+        className={`w-5 h-5 rounded-full border-2 border-white shadow-card hover:scale-110 transition-transform ${
+          isExplicit ? "" : "opacity-60"
+        }`}
+      />
+      {open && (
+        <div className="absolute right-0 top-7 z-30 bg-background-card border border-border rounded-xl shadow-soft p-2 flex gap-1.5">
+          {GROOMER_COLOR_KEYS.map((key) => {
+            const isActive = isExplicit && key === activeColor;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => { onPick(key); setOpen(false); }}
+                title={GROOMER_COLOR_LABELS[key]}
+                style={{ background: GROOMER_SWATCH_HEX[key] }}
+                className={`w-5 h-5 rounded-full transition-all ${
+                  isActive
+                    ? "ring-2 ring-offset-1 ring-text-primary"
+                    : "hover:scale-110"
+                }`}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const ROLE_BADGE = {
   "org:super_admin": "bg-yellow-100 text-yellow-700",
@@ -39,7 +88,13 @@ export default function UserManagement() {
   const [actionError,     setActionError]     = useState("");
 
   function findGroomer(tokenId) {
-    return (groomers ?? []).find((g) => g.tokenIdentifier === tokenId) ?? null;
+    if (!tokenId) return null;
+    // Convex's identity.tokenIdentifier is "<issuer>|<subject>" (e.g.
+    // "https://big-ray-65.clerk.accounts.dev|user_2abc"), but Clerk's
+    // membership.publicUserData.userId is just the bare subject. Match either form.
+    return (groomers ?? []).find((g) =>
+      g.tokenIdentifier === tokenId || g.tokenIdentifier.endsWith(`|${tokenId}`),
+    ) ?? null;
   }
 
   function openAdd() {
@@ -126,48 +181,25 @@ export default function UserManagement() {
                 key={m.id}
                 className="flex items-center justify-between gap-3 px-4 py-3 bg-background-sidebar rounded-xl"
               >
-                <div className="min-w-0 flex items-center gap-2.5">
-                  {/* Current schedule color indicator */}
-                  {groomer && (
-                    <span
-                      title={`Color: ${GROOMER_COLOR_LABELS[activeColor]}${isExplicit ? "" : " (auto)"}`}
-                      className={`w-3 h-3 rounded-full shrink-0 ${GROOMER_SWATCH_CLASSES[activeColor]} ${
-                        isExplicit ? "" : "opacity-60"
-                      }`}
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-text-primary truncate">{name}</p>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_BADGE[m.role] ?? ROLE_BADGE["org:member"]}`}>
-                        {ROLE_LABEL[m.role] ?? m.role}
-                      </span>
-                    </div>
-                    <p className="text-xs text-text-muted mt-0.5">{email}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-text-primary truncate">{name}</p>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROLE_BADGE[m.role] ?? ROLE_BADGE["org:member"]}`}>
+                      {ROLE_LABEL[m.role] ?? m.role}
+                    </span>
                   </div>
+                  <p className="text-xs text-text-muted mt-0.5">{email}</p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {/* Inline color picker — small circles, only shown once the staff member
-                      has signed in at least once (which creates their Convex users row). */}
+                  {/* Click the dot to open the color picker. Only available once the staff
+                      member has signed in at least once (which creates their Convex users row). */}
                   {groomer && (
-                    <div className="flex items-center gap-1">
-                      {GROOMER_COLOR_KEYS.map((key) => {
-                        const isActive = isExplicit && key === activeColor;
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => handlePickColor(key)}
-                            title={GROOMER_COLOR_LABELS[key]}
-                            className={`w-3.5 h-3.5 rounded-full ${GROOMER_SWATCH_CLASSES[key]} transition-all ${
-                              isActive
-                                ? "ring-2 ring-offset-1 ring-text-primary ring-offset-background-sidebar"
-                                : "hover:scale-125"
-                            }`}
-                          />
-                        );
-                      })}
-                    </div>
+                    <ColorDotPicker
+                      activeColor={activeColor}
+                      isExplicit={isExplicit}
+                      onPick={handlePickColor}
+                    />
                   )}
 
                   {canEdit(m) && (
